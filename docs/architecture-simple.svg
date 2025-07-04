@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .node { fill: #e1f5fe; stroke: #01579b; stroke-width: 2; rx: 10; ry: 10; }
+      .node-text { font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; text-anchor: middle; fill: #01579b; }
+      .arrow { stroke: #424242; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .arrow-text { font-family: Arial, sans-serif; font-size: 12px; fill: #424242; }
+      .title { font-family: Arial, sans-serif; font-size: 20px; font-weight: bold; text-anchor: middle; fill: #212121; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#424242" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="30" class="title">Manushya.ai - Simple Architecture</text>
+  
+  <!-- Client -->
+  <rect x="50" y="80" width="120" height="60" class="node"/>
+  <text x="110" y="115" class="node-text">Client</text>
+  
+  <!-- API -->
+  <rect x="250" y="80" width="120" height="60" class="node"/>
+  <text x="310" y="115" class="node-text">FastAPI</text>
+  
+  <!-- Database -->
+  <rect x="450" y="80" width="120" height="60" class="node"/>
+  <text x="510" y="115" class="node-text">PostgreSQL</text>
+  
+  <!-- Redis -->
+  <rect x="650" y="80" width="120" height="60" class="node"/>
+  <text x="710" y="115" class="node-text">Redis</text>
+  
+  <!-- Celery -->
+  <rect x="250" y="200" width="120" height="60" class="node"/>
+  <text x="310" y="235" class="node-text">Celery</text>
+  
+  <!-- Auth -->
+  <rect x="50" y="200" width="120" height="60" class="node"/>
+  <text x="110" y="235" class="node-text">JWT Auth</text>
+  
+  <!-- Policy -->
+  <rect x="450" y="200" width="120" height="60" class="node"/>
+  <text x="510" y="235" class="node-text">Policy Engine</text>
+  
+  <!-- Arrows -->
+  <!-- Client to API -->
+  <line x1="170" y1="110" x2="250" y2="110" class="arrow"/>
+  <text x="210" y="105" class="arrow-text">REST/JSON</text>
+  
+  <!-- API to Database -->
+  <line x1="370" y1="110" x2="450" y2="110" class="arrow"/>
+  <text x="410" y="105" class="arrow-text">SQL</text>
+  
+  <!-- API to Redis -->
+  <line x1="370" y1="140" x2="650" y2="140" class="arrow"/>
+  <text x="510" y="135" class="arrow-text">Cache/Queue</text>
+  
+  <!-- API to Auth -->
+  <line x1="250" y1="200" x2="170" y2="200" class="arrow"/>
+  <text x="210" y="195" class="arrow-text">JWT</text>
+  
+  <!-- API to Policy -->
+  <line x1="370" y1="200" x2="450" y2="200" class="arrow"/>
+  <text x="410" y="195" class="arrow-text">Policy Check</text>
+  
+  <!-- API to Celery -->
+  <line x1="310" y1="140" x2="310" y2="200" class="arrow"/>
+  <text x="315" y="170" class="arrow-text">Async Tasks</text>
+  
+  <!-- Celery to Redis -->
+  <line x1="370" y1="230" x2="650" y2="230" class="arrow"/>
+  <text x="510" y="225" class="arrow-text">Queue</text>
+  
+  <!-- Celery to Database -->
+  <line x1="370" y1="260" x2="450" y2="260" class="arrow"/>
+  <text x="410" y="255" class="arrow-text">Update</text>
+  
+  <!-- Legend -->
+  <rect x="50" y="320" width="700" height="200" fill="#f5f5f5" stroke="#ccc" stroke-width="1" rx="5"/>
+  <text x="400" y="345" class="title" style="font-size: 16px;">Components</text>
+  
+  <text x="80" y="370" class="arrow-text" style="font-weight: bold;">• Client:</text>
+  <text x="80" y="390" class="arrow-text">  User applications, SDKs, AI agents</text>
+  
+  <text x="80" y="420" class="arrow-text" style="font-weight: bold;">• FastAPI:</text>
+  <text x="80" y="440" class="arrow-text">  REST API with identity, memory, policy endpoints</text>
+  
+  <text x="80" y="470" class="arrow-text" style="font-weight: bold;">• PostgreSQL:</text>
+  <text x="80" y="490" class="arrow-text">  Primary database for identities, memories, policies, audit logs</text>
+  
+  <text x="400" y="370" class="arrow-text" style="font-weight: bold;">• Redis:</text>
+  <text x="400" y="390" class="arrow-text">  Caching and Celery task queue</text>
+  
+  <text x="400" y="420" class="arrow-text" style="font-weight: bold;">• Celery:</text>
+  <text x="400" y="440" class="arrow-text">  Background processing for embeddings</text>
+  
+  <text x="400" y="470" class="arrow-text" style="font-weight: bold;">• JWT Auth:</text>
+  <text x="400" y="490" class="arrow-text">  Token-based authentication and authorization</text>
+  
+  <text x="400" y="520" class="arrow-text" style="font-weight: bold;">• Policy Engine:</text>
+  <text x="400" y="540" class="arrow-text">  JSON Logic-based access control</text>
+</svg> 

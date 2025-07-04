@@ -17,20 +17,11 @@ A production-ready, enterprise-grade backend for secure identity and memory infr
 
 ## 🏗️ Architecture
 
-```
-┌──────────────┐     REST API    ┌──────────────┐
-│  Manushya SDK│ ──────────────▶ │  API Gateway │ ──┐
-└──────────────┘                 └──────────────┘  │
-                                                   ▼
-┌──────────────┐   Policy   ┌──────────────┐
-│ Policy Engine│◀──────────▶│ Identity DB  │
-└──────┬───────┘  Check     └──────────────┘
-       │ allow/deny
-       ▼
-┌──────────────┐
-│ Memory Store │  (PostgreSQL + Redis + Celery)
-└──────────────┘
-```
+### Simple Overview
+![Simple Architecture](docs/architecture-simple.svg)
+
+### Detailed Architecture
+![Detailed Architecture](docs/architecture.svg)
 
 ## 🛠️ Tech Stack
 
