@@ -2,17 +2,17 @@
 Database configuration and session management
 """
 
-import asyncio
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.pool import NullPool
 
 from manushya.config import settings
 
 
 class Base(DeclarativeBase):
     """Base class for all database models."""
+
     pass
 
 
@@ -53,8 +53,7 @@ async def init_db():
     """Initialize database tables."""
     async with engine.begin() as conn:
         # Import models to ensure they are registered
-        from .models import Identity, Memory, Policy, AuditLog
-        
+
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
 
@@ -69,7 +68,12 @@ async def check_db_health() -> bool:
     """Check if database is healthy."""
     try:
         async with AsyncSessionLocal() as session:
-            await session.execute("SELECT 1")
+            from sqlalchemy import text
+
+            await session.execute(text("SELECT 1"))
         return True
-    except Exception:
-        return False 
+    except Exception as e:
+        import logging
+
+        logging.error(f"Database health check failed: {e}")
+        return False

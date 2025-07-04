@@ -5,20 +5,22 @@ Main FastAPI application for Manushya.ai
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Dict, Any
-from fastapi import FastAPI, Request, HTTPException, status
+from typing import Any
+
+import structlog
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, Response
-from fastapi.exceptions import RequestValidationError
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-import structlog
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from sqlalchemy.exc import SQLAlchemyError
 
-from manushya.config import settings
-from manushya.db.database import init_db, close_db
-from manushya.core.exceptions import ManushyaException
 # Import routers after they're created
 from manushya.api.v1 import identity, memory, policy
+from manushya.config import settings
+from manushya.core.exceptions import ManushyaException
+from manushya.db.database import close_db, init_db
 
 # Configure structured logging
 structlog.configure(
@@ -31,7 +33,7 @@ structlog.configure(
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
+        structlog.processors.JSONRenderer(),
     ],
     context_class=dict,
     logger_factory=structlog.stdlib.LoggerFactory(),
@@ -43,15 +45,11 @@ logger = structlog.get_logger()
 
 # Prometheus metrics
 REQUEST_COUNT = Counter(
-    "http_requests_total",
-    "Total HTTP requests",
-    ["method", "endpoint", "status"]
+    "http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]
 )
 
 REQUEST_LATENCY = Histogram(
-    "http_request_duration_seconds",
-    "HTTP request latency",
-    ["method", "endpoint"]
+    "http_request_duration_seconds", "HTTP request latency", ["method", "endpoint"]
 )
 
 
@@ -60,16 +58,16 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info("Starting Manushya.ai application", version=settings.version)
-    
+
     try:
         await init_db()
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error("Failed to initialize database", error=str(e))
         raise
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Manushya.ai application")
     await close_db()
@@ -83,7 +81,7 @@ app = FastAPI(
     docs_url="/v1/docs" if settings.debug else None,
     redoc_url="/v1/redoc" if settings.debug else None,
     openapi_url="/v1/openapi.json" if settings.debug else None,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add middleware
@@ -97,7 +95,7 @@ app.add_middleware(
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1"]
+    allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1"],
 )
 
 
@@ -105,11 +103,11 @@ app.add_middleware(
 async def add_process_time_header(request: Request, call_next):
     """Add processing time header and log requests."""
     start_time = time.time()
-    
+
     # Generate request ID
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
-    
+
     # Log request
     logger.info(
         "HTTP request started",
@@ -117,28 +115,25 @@ async def add_process_time_header(request: Request, call_next):
         method=request.method,
         url=str(request.url),
         client_ip=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent")
+        user_agent=request.headers.get("user-agent"),
     )
-    
+
     response = await call_next(request)
-    
+
     # Calculate processing time
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = str(process_time)
     response.headers["X-Request-ID"] = request_id
-    
+
     # Update metrics
     REQUEST_COUNT.labels(
-        method=request.method,
-        endpoint=request.url.path,
-        status=response.status_code
+        method=request.method, endpoint=request.url.path, status=response.status_code
     ).inc()
-    
-    REQUEST_LATENCY.labels(
-        method=request.method,
-        endpoint=request.url.path
-    ).observe(process_time)
-    
+
+    REQUEST_LATENCY.labels(method=request.method, endpoint=request.url.path).observe(
+        process_time
+    )
+
     # Log response
     logger.info(
         "HTTP request completed",
@@ -146,9 +141,9 @@ async def add_process_time_header(request: Request, call_next):
         method=request.method,
         url=str(request.url),
         status_code=response.status_code,
-        process_time=process_time
+        process_time=process_time,
     )
-    
+
     return response
 
 
@@ -161,17 +156,17 @@ async def manushya_exception_handler(request: Request, exc: ManushyaException):
         request_id=getattr(request.state, "request_id", None),
         error=exc.message,
         error_code=exc.error_code,
-        details=exc.details
+        details=exc.details,
     )
-    
+
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={
             "error": exc.message,
             "error_code": exc.error_code,
             "details": exc.details,
-            "request_id": getattr(request.state, "request_id", None)
-        }
+            "request_id": getattr(request.state, "request_id", None),
+        },
     )
 
 
@@ -181,16 +176,36 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     logger.error(
         "Validation error",
         request_id=getattr(request.state, "request_id", None),
-        errors=exc.errors()
+        errors=exc.errors(),
     )
-    
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": "Validation error",
             "details": exc.errors(),
-            "request_id": getattr(request.state, "request_id", None)
-        }
+            "request_id": getattr(request.state, "request_id", None),
+        },
+    )
+
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
+    """Handle SQLAlchemy database errors."""
+    logger.error(
+        "Database error",
+        request_id=getattr(request.state, "request_id", None),
+        error=str(exc),
+        exc_info=True,
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": "Database operation failed",
+            "details": "A database error occurred while processing your request",
+            "request_id": getattr(request.state, "request_id", None),
+        },
     )
 
 
@@ -201,38 +216,39 @@ async def general_exception_handler(request: Request, exc: Exception):
         "Unhandled exception",
         request_id=getattr(request.state, "request_id", None),
         error=str(exc),
-        exc_info=True
+        exc_info=True,
     )
-    
+
+    # In production, don't expose internal error details
+    error_message = "Internal server error"
+    if settings.debug:
+        error_message = f"Internal server error: {str(exc)}"
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
-            "error": "Internal server error",
-            "request_id": getattr(request.state, "request_id", None)
-        }
+            "error": error_message,
+            "request_id": getattr(request.state, "request_id", None),
+        },
     )
 
 
 # Health check endpoint
 @app.get("/healthz")
-async def health_check() -> Dict[str, Any]:
+async def health_check() -> dict[str, Any]:
     """Health check endpoint."""
     from manushya.db.database import check_db_health
-    
+
     db_healthy = await check_db_health()
-    
+
     health_status = {
         "status": "healthy" if db_healthy else "unhealthy",
         "timestamp": time.time(),
         "version": settings.version,
         "environment": settings.environment,
-        "services": {
-            "database": "healthy" if db_healthy else "unhealthy"
-        }
+        "services": {"database": "healthy" if db_healthy else "unhealthy"},
     }
-    
-    status_code = status.HTTP_200_OK if db_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
-    
+
     return health_status
 
 
@@ -240,10 +256,7 @@ async def health_check() -> Dict[str, Any]:
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint."""
-    return Response(
-        content=generate_latest(),
-        media_type=CONTENT_TYPE_LATEST
-    )
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 # Include API routers
@@ -261,17 +274,17 @@ async def root():
         "version": settings.version,
         "docs": "/v1/docs" if settings.debug else None,
         "health": "/healthz",
-        "metrics": "/metrics"
+        "metrics": "/metrics",
     }
 
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "manushya.main:app",
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
-        log_level=settings.log_level.lower()
-    ) 
+        log_level=settings.log_level.lower(),
+    )

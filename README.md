@@ -34,13 +34,13 @@ A production-ready, enterprise-grade backend for secure identity and memory infr
 
 ## 🛠️ Tech Stack
 
-- **Language**: Python 3.11+
+- **Language**: Python 3.10 (downgraded for json_logic compatibility)
 - **Framework**: FastAPI
 - **ORM**: SQLAlchemy 2.x with Alembic
 - **Database**: PostgreSQL (pgvector extension optional)
 - **Cache/Queue**: Redis + Celery
 - **Auth**: JWT with python-jose
-- **Policy Engine**: JSON Logic (validation temporarily disabled)
+- **Policy Engine**: JSON Logic (patched for Python 3.10 compatibility)
 - **Monitoring**: Prometheus + Structlog
 - **Containerization**: Docker + Docker Compose
 
@@ -49,7 +49,7 @@ A production-ready, enterprise-grade backend for secure identity and memory infr
 ### Prerequisites
 
 - Docker and Docker Compose
-- Python 3.11+
+- Python 3.10
 - Git
 
 ### 1. Clone the Repository
@@ -106,7 +106,8 @@ curl -X POST "http://localhost:8000/v1/identity/" \
   -d '{
     "external_id": "test-user",
     "role": "user",
-    "claims": {"name": "Test User"}
+    "name": "Test User",
+    "description": "Test identity for endpoint testing"
   }'
 ```
 
@@ -120,18 +121,25 @@ curl -X POST "http://localhost:8000/v1/identity/" \
   -d '{
     "external_id": "agent-001",
     "role": "agent",
-    "claims": {"organization": "acme-corp"}
+    "name": "Test Agent",
+    "description": "Test agent for API testing"
   }'
 ```
 
 **Response:**
 ```json
 {
-  "id": "uuid",
-  "external_id": "agent-001",
-  "role": "agent",
   "access_token": "jwt_token_here",
-  "created_at": "2025-07-03T22:00:00Z"
+  "token_type": "bearer",
+  "identity": {
+    "id": "uuid",
+    "external_id": "agent-001",
+    "role": "agent",
+    "claims": {},
+    "is_active": true,
+    "created_at": "2025-07-04T10:37:04.546173Z",
+    "updated_at": "2025-07-04T10:37:04.546173Z"
+  }
 }
 ```
 
@@ -143,8 +151,8 @@ curl -X POST "http://localhost:8000/v1/memory/" \
   -H "Content-Type: application/json" \
   -d '{
     "text": "The user prefers dark mode interfaces",
-    "type": "preference",
-    "metadata": {"category": "ui", "priority": "high"}
+    "type": "text",
+    "meta_data": {"category": "ui", "priority": "high"}
   }'
 ```
 
@@ -156,13 +164,11 @@ curl -X POST "http://localhost:8000/v1/memory/search" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "user interface preferences",
-    "type": "preference",
-    "limit": 5,
-    "similarity_threshold": 0.7
+    "limit": 5
   }'
 ```
 
-**Note:** Currently uses text-based search. Vector similarity search requires pgvector extension setup.
+**Note:** Currently uses text-based search with scoring (0.8 for exact matches, 0.3 for others). Vector similarity search requires pgvector extension setup.
 
 ### 4. Create Policy
 
@@ -179,17 +185,31 @@ curl -X POST "http://localhost:8000/v1/policy/" \
       ]
     },
     "description": "Agents can read memories",
-    "priority": 100
+    "priority": 100,
+    "is_active": true
   }'
 ```
 
-**Note:** JSON Logic validation is temporarily disabled due to library compatibility issues.
+### 5. Test Policy
+
+```bash
+curl -X POST "http://localhost:8000/v1/policy/test?role=agent&action=read&resource=memory" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "identity": {"role": "agent"}
+  }'
+```
 
 ## 🔧 Development
 
 ### Local Development Setup
 
 ```bash
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Install dependencies
 pip install -e ".[dev]"
 
@@ -201,7 +221,7 @@ black manushya/
 ruff check manushya/
 
 # Run linting
-mypy manushya/
+ruff check .
 ```
 
 ### Database Migrations
@@ -273,7 +293,7 @@ Access Flower dashboard at: http://localhost:5555
 
 ### Authorization
 
-- JSON Logic-based policy engine (validation temporarily disabled)
+- JSON Logic-based policy engine (patched for Python 3.10 compatibility)
 - Fine-grained access control
 - Policy caching for performance
 
@@ -293,16 +313,18 @@ Access Flower dashboard at: http://localhost:5555
 
 ### Known Issues
 
-1. **JSON Logic Validation**: Temporarily disabled due to library compatibility issues
+1. **Python Version**: Downgraded to Python 3.10 for json_logic compatibility
 2. **Vector Search**: Requires pgvector extension setup for full vector similarity search
-3. **Health Check**: Database health check may show as unhealthy but API functions correctly
+3. **Health Check**: Docker health checks may show as unhealthy but API functions correctly
 4. **Memory Search**: Currently uses text-based search with simple scoring
+5. **Flower Dashboard**: May restart occasionally but doesn't affect core functionality
 
 ### Workarounds
 
-- **Policy Creation**: Works without validation (policies are stored but not validated)
+- **Policy Creation**: Works with patched json_logic library
 - **Memory Search**: Uses text-based search with scoring (0.8 for exact matches, 0.3 for others)
 - **Vector Search**: Can be enabled by installing pgvector extension in PostgreSQL
+- **Health Checks**: API endpoints work correctly despite Docker health check status
 
 ## 🚀 Production Deployment
 
@@ -343,10 +365,11 @@ docker-compose exec -T postgres psql -U manushya manushya < backup.sql
 
 ### Common Issues
 
-1. **API Container Unhealthy**: Check logs with `docker-compose logs api`
+1. **API Container Unhealthy**: Check logs with `docker-compose logs api` - API may still be functional
 2. **Database Connection Issues**: Verify PostgreSQL is running and credentials are correct
 3. **Redis Connection Issues**: Check Redis container status and password configuration
 4. **Memory Search Not Working**: Ensure memories exist and query matches text content
+5. **JSON Logic Errors**: Ensure Python 3.10 is used and json_logic patch is applied
 
 ### Debug Commands
 
@@ -362,6 +385,10 @@ docker-compose restart [service-name]
 
 # Rebuild and restart all services
 docker-compose down && docker-compose build --no-cache && docker-compose up -d
+
+# Test API endpoints
+curl http://localhost:8000/healthz
+curl http://localhost:8000/v1/docs
 ```
 
 ## 🤝 Contributing
@@ -370,7 +397,7 @@ docker-compose down && docker-compose build --no-cache && docker-compose up -d
 2. Create a feature branch
 3. Make your changes
 4. Add tests
-5. Run linting and tests
+5. Run linting and tests: `ruff check .`
 6. Submit a pull request
 
 ## 📄 License
@@ -389,7 +416,9 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - [x] Docker containerization
 - [x] JWT authentication
 - [x] Text-based memory search
-- [ ] JSON Logic validation re-enablement
+- [x] JSON Logic policy engine (patched for Python 3.10)
+- [x] Comprehensive monitoring and metrics
+- [x] Audit logging
 - [ ] pgvector extension setup
 - [ ] gRPC interface
 - [ ] GraphQL API

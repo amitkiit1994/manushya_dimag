@@ -3,6 +3,7 @@ Celery application configuration for Manushya.ai
 """
 
 from celery import Celery
+
 from manushya.config import settings
 
 # Create Celery app
@@ -10,7 +11,7 @@ celery_app = Celery(
     "manushya",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["manushya.tasks.memory_tasks"]
+    include=["manushya.tasks.memory_tasks"],
 )
 
 # Celery configuration
@@ -56,4 +57,4 @@ celery_app.conf.beat_schedule = {
 }
 
 if __name__ == "__main__":
-    celery_app.start() 
+    celery_app.start()
