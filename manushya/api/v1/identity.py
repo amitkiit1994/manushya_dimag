@@ -20,6 +20,7 @@ from manushya.core.auth import (
 )
 from manushya.core.exceptions import ConflictError, NotFoundError
 from manushya.core.policy_engine import PolicyEngine
+from manushya.core.session_service import SessionService
 from manushya.db.database import get_db
 from manushya.db.models import Identity, Tenant
 from manushya.services.webhook_service import WebhookService
@@ -58,6 +59,7 @@ class IdentityResponse(BaseModel):
 
 class IdentityTokenResponse(BaseModel):
     access_token: str
+    refresh_token: str | None = None
     token_type: str = "bearer"
     identity: IdentityResponse
 
@@ -77,7 +79,9 @@ class BulkDeleteResponse(BaseModel):
 
 @router.post("/", response_model=IdentityTokenResponse)
 async def create_identity(
-    identity_data: IdentityCreate, db: AsyncSession = Depends(get_db)
+    identity_data: IdentityCreate, 
+    http_request: StarletteRequest,
+    db: AsyncSession = Depends(get_db)
 ):
     """Create a new identity and return access token. Injects tenant_id for multi-tenancy."""
     try:
@@ -85,20 +89,8 @@ async def create_identity(
         tenant_id = None
         
         # Try to extract tenant_id from JWT context (if available)
-        # We'll try to find the request object in the call stack
-        request: StarletteRequest | None = None
-        try:
-            import inspect
-            frame = inspect.currentframe()
-            while frame:
-                if 'request' in frame.f_locals and isinstance(frame.f_locals['request'], StarletteRequest):
-                    request = frame.f_locals['request']
-                    break
-                frame = frame.f_back
-        except Exception:
-            pass
-        if request is not None:
-            auth_header = request.headers.get('authorization')
+        if http_request is not None:
+            auth_header = http_request.headers.get('authorization')
             if auth_header and auth_header.lower().startswith('bearer '):
                 token = auth_header.split(' ', 1)[1]
                 try:
@@ -139,6 +131,15 @@ async def create_identity(
             await db.refresh(identity)
         # Create access token
         access_token = create_identity_token(identity)
+        
+        # Create session and refresh token
+        session, refresh_token = await SessionService.create_session(
+            db=db,
+            identity=identity,
+            request=http_request,
+            expires_in_days=30
+        )
+        
         # Trigger webhook for identity creation
         await WebhookService.trigger_webhook(
             db=db,
@@ -152,8 +153,11 @@ async def create_identity(
             },
             tenant_id=str(tenant_id)
         )
+        
         return IdentityTokenResponse(
-            access_token=access_token, identity=IdentityResponse.from_orm(identity)
+            access_token=access_token, 
+            refresh_token=refresh_token,
+            identity=IdentityResponse.from_orm(identity)
         )
     except IntegrityError:
         await db.rollback()

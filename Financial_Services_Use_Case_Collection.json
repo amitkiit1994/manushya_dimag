@@ -1,0 +1,785 @@
+{
+	"info": {
+		"_postman_id": "financial-services-use-case",
+		"name": "Financial Services - Complete End-to-End Flow",
+		"description": "Complete end-to-end testing flow for Manushya.ai enterprise identity system in a financial services scenario. Demonstrates multi-tenancy, API keys, invitations, memory system, webhooks, and monitoring.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Phase 1: System Health & Admin Setup",
+			"item": [
+				{
+					"name": "1.1 Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/healthz",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"healthz"
+							]
+						},
+						"description": "Verify system health and database connectivity"
+					},
+					"response": []
+				},
+				{
+					"name": "1.2 Create System Admin",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"external_id\": \"admin@financialcorp.com\",\n  \"role\": \"admin\",\n  \"claims\": {\n    \"organization\": \"financial_corp\",\n    \"department\": \"it\",\n    \"purpose\": \"system_administration\"\n  },\n  \"tenant_id\": \"financial-corp-001\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/identity/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								""
+							]
+						},
+						"description": "Create the system administrator identity. Save the access_token as {{admin_token}} in environment variables."
+					},
+					"response": []
+				},
+				{
+					"name": "1.3 Get Admin Identity Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/identity/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								"me"
+							]
+						},
+						"description": "Verify admin identity and token are working correctly"
+					},
+					"response": []
+				}
+			],
+			"description": "Initial system setup and admin identity creation"
+		},
+		{
+			"name": "Phase 2: User Management & Invitations",
+			"item": [
+				{
+					"name": "2.1 Create Financial Advisor",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"external_id\": \"advisor_001\",\n  \"role\": \"advisor\",\n  \"claims\": {\n    \"organization\": \"financial_corp\",\n    \"department\": \"investment\",\n    \"purpose\": \"financial_advisor\",\n    \"licenses\": [\"series_7\", \"series_63\"]\n  },\n  \"tenant_id\": \"financial-corp-001\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/identity/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								""
+							]
+						},
+						"description": "Create a financial advisor identity with appropriate licenses and claims"
+					},
+					"response": []
+				},
+				{
+					"name": "2.2 Create Compliance Officer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"external_id\": \"compliance_001\",\n  \"role\": \"compliance\",\n  \"claims\": {\n    \"organization\": \"financial_corp\",\n    \"department\": \"compliance\",\n    \"purpose\": \"compliance_officer\",\n    \"certifications\": [\"finra_compliance\"]\n  },\n  \"tenant_id\": \"financial-corp-001\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/identity/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								""
+							]
+						},
+						"description": "Create a compliance officer identity with regulatory certifications"
+					},
+					"response": []
+				},
+				{
+					"name": "2.3 Send Invitation to New Advisor",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"newadvisor@financialcorp.com\",\n  \"role\": \"advisor\",\n  \"claims\": {\n    \"organization\": \"financial_corp\",\n    \"department\": \"investment\",\n    \"purpose\": \"financial_advisor\"\n  },\n  \"expires_at\": \"2025-12-31T23:59:59Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/invitations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"invitations",
+								""
+							]
+						},
+						"description": "Send an invitation to a new financial advisor. Save the invitation ID for later use."
+					},
+					"response": []
+				},
+				{
+					"name": "2.4 List All Invitations",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/invitations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"invitations",
+								""
+							]
+						},
+						"description": "View all pending invitations in the system"
+					},
+					"response": []
+				}
+			],
+			"description": "Create different user roles and manage invitations"
+		},
+		{
+			"name": "Phase 3: API Key Management",
+			"item": [
+				{
+					"name": "3.1 Create API Key for CRM Integration",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Financial Corp CRM Integration\",\n  \"permissions\": [\"read\", \"write\"],\n  \"expires_at\": \"2025-12-31T23:59:59Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/api-keys/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"api-keys",
+								""
+							]
+						},
+						"description": "Create an API key for CRM system integration. Save the secret_key as {{api_key_secret}} in environment variables."
+					},
+					"response": []
+				},
+				{
+					"name": "3.2 Test API Key Authentication",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{api_key_secret}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/identity/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								"me"
+							]
+						},
+						"description": "Test that the API key can authenticate and access the system"
+					},
+					"response": []
+				},
+				{
+					"name": "3.3 List All API Keys",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/api-keys/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"api-keys",
+								""
+							]
+						},
+						"description": "View all API keys in the system"
+					},
+					"response": []
+				}
+			],
+			"description": "Create and manage API keys for programmatic access"
+		},
+		{
+			"name": "Phase 4: Memory System & Semantic Search",
+			"item": [
+				{
+					"name": "4.1 Create Client Interaction Memory",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Client John Smith called regarding his retirement portfolio. He's concerned about market volatility and wants to discuss rebalancing his 401k allocation. He mentioned he's 5 years from retirement and wants to be more conservative.\",\n  \"type\": \"client_interaction\",\n  \"metadata\": {\n    \"client_id\": \"CS001\",\n    \"interaction_type\": \"phone_call\",\n    \"advisor_id\": \"advisor_001\",\n    \"priority\": \"medium\",\n    \"follow_up_required\": true\n  },\n  \"ttl_days\": 2555\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "Store a client interaction memory with metadata for future reference"
+					},
+					"response": []
+				},
+				{
+					"name": "4.2 Create Another Client Memory",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Client Sarah Johnson emailed about her investment portfolio performance. She's interested in ESG funds and wants to discuss sustainable investment options. She has a moderate risk tolerance and is 15 years from retirement.\",\n  \"type\": \"client_interaction\",\n  \"metadata\": {\n    \"client_id\": \"CS002\",\n    \"interaction_type\": \"email\",\n    \"advisor_id\": \"advisor_001\",\n    \"priority\": \"low\",\n    \"follow_up_required\": false\n  },\n  \"ttl_days\": 2555\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "Store another client interaction for testing semantic search"
+					},
+					"response": []
+				},
+				{
+					"name": "4.3 Search Memories - Retirement Portfolio",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"retirement portfolio rebalancing\",\n  \"type\": \"client_interaction\",\n  \"limit\": 5,\n  \"similarity_threshold\": 0.7\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/search",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								"search"
+							]
+						},
+						"description": "Search for memories related to retirement portfolio rebalancing"
+					},
+					"response": []
+				},
+				{
+					"name": "4.4 Search Memories - ESG Investments",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"ESG sustainable investment funds\",\n  \"type\": \"client_interaction\",\n  \"limit\": 5,\n  \"similarity_threshold\": 0.6\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/search",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								"search"
+							]
+						},
+						"description": "Search for memories related to ESG and sustainable investments"
+					},
+					"response": []
+				},
+				{
+					"name": "4.5 List All Memories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "View all stored memories in the system"
+					},
+					"response": []
+				}
+			],
+			"description": "Store and search client interactions using semantic search"
+		},
+		{
+			"name": "Phase 5: Webhook System",
+			"item": [
+				{
+					"name": "5.1 Create Webhook for Real-time Notifications",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Financial Corp CRM Webhook\",\n  \"url\": \"https://webhook.site/your-unique-url\",\n  \"events\": [\n    \"identity.created\",\n    \"identity.updated\",\n    \"memory.created\",\n    \"invitation.accepted\"\n  ],\n  \"secret\": \"webhook_secret_123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								""
+							]
+						},
+						"description": "Create a webhook for real-time notifications to CRM system. Save the webhook ID for later use."
+					},
+					"response": []
+				},
+				{
+					"name": "5.2 List All Webhooks",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								""
+							]
+						},
+						"description": "View all configured webhooks in the system"
+					},
+					"response": []
+				},
+				{
+					"name": "5.3 Get Webhook Deliveries",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/{{webhook_id}}/deliveries",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhook_id}}",
+								"deliveries"
+							]
+						},
+						"description": "Check webhook delivery status and history"
+					},
+					"response": []
+				}
+			],
+			"description": "Set up webhooks for real-time notifications"
+		},
+		{
+			"name": "Phase 6: Monitoring & Analytics",
+			"item": [
+				{
+					"name": "6.1 Check Rate Limits",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/monitoring/rate-limits",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"rate-limits"
+							]
+						},
+						"description": "Check current rate limit usage and status"
+					},
+					"response": []
+				},
+				{
+					"name": "6.2 Get API Usage Analytics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/monitoring/usage",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"usage"
+							]
+						},
+						"description": "Get API usage analytics and metrics"
+					},
+					"response": []
+				},
+				{
+					"name": "6.3 List All Identities",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/identity/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								""
+							]
+						},
+						"description": "View all identities in the system"
+					},
+					"response": []
+				},
+				{
+					"name": "6.4 Get System Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/metrics",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"metrics"
+							]
+						},
+						"description": "Get Prometheus metrics for system monitoring"
+					},
+					"response": []
+				}
+			],
+			"description": "Monitor system usage, rate limits, and analytics"
+		},
+		{
+			"name": "Phase 7: Session Management",
+			"item": [
+				{
+					"name": "7.1 List Active Sessions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/sessions/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"sessions",
+								""
+							]
+						},
+						"description": "View all active sessions for the current user"
+					},
+					"response": []
+				},
+				{
+					"name": "7.2 Refresh Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/sessions/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"sessions",
+								"refresh"
+							]
+						},
+						"description": "Refresh the access token using refresh token"
+					},
+					"response": []
+				}
+			],
+			"description": "Manage user sessions and token refresh"
+		},
+		{
+			"name": "Phase 8: SSO Integration",
+			"item": [
+				{
+					"name": "8.1 Initiate Google SSO Login",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/sso/login/google",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"login",
+								"google"
+							]
+						},
+						"description": "Initiate SSO login with Google. This will redirect to Google's OAuth2 authorization page."
+					},
+					"response": []
+				}
+			],
+			"description": "Test SSO integration with Google OAuth2"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Set default headers for all requests",
+					"pm.request.headers.add({\n    key: 'Accept',\n    value: 'application/json'\n});"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "api_key_secret",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "webhook_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		}
+	]
+} 

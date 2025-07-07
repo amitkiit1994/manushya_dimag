@@ -4,7 +4,7 @@ Session management service for Manushya.ai
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Request
 from sqlalchemy import select
@@ -29,7 +29,7 @@ class SessionService:
     @staticmethod
     def calculate_session_expiration(days: int = 30) -> datetime:
         """Calculate session expiration date."""
-        return datetime.utcnow() + timedelta(days=days)
+        return datetime.now(timezone.utc) + timedelta(days=days)
 
     @staticmethod
     def extract_device_info(request: Request) -> dict:
@@ -96,7 +96,7 @@ class SessionService:
             user_agent=device_info.get("user_agent"),
             is_active=True,
             expires_at=expires_at,
-            last_used_at=datetime.utcnow(),
+            last_used_at=datetime.now(timezone.utc),
             tenant_id=identity.tenant_id,
         )
 
@@ -127,7 +127,7 @@ class SessionService:
             return None
 
         # Update last used timestamp
-        session.last_used_at = datetime.utcnow()
+        session.last_used_at = datetime.now(timezone.utc)
         await db.commit()
 
         return session
@@ -216,7 +216,7 @@ class SessionService:
     ) -> int:
         """Clean up expired sessions."""
         stmt = select(Session).where(
-            Session.expires_at < datetime.utcnow(),
+            Session.expires_at < datetime.now(timezone.utc),
             Session.is_active
         )
 

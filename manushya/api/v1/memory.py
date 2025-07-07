@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from manushya.core.auth import get_current_identity
@@ -236,38 +236,68 @@ async def search_memories(
     except Exception as e:
         raise ValidationError(f"Failed to generate embedding: {str(e)}") from e
 
-    # Build query
-    stmt = select(Memory).where(
-        and_(Memory.identity_id == current_identity.id, ~Memory.is_deleted)
-    )
+    # Build query - be more flexible with identity matching
+    stmt = select(Memory).where(~Memory.is_deleted)
+
+    # For admin users, allow searching all memories within their tenant
+    if current_identity.role == "admin":
+        if current_identity.tenant_id is not None:
+            stmt = stmt.where(Memory.tenant_id == current_identity.tenant_id)
+    else:
+        # For regular users, only show their own memories
+        stmt = stmt.where(Memory.identity_id == current_identity.id)
+        if current_identity.tenant_id is not None:
+            stmt = stmt.where(Memory.tenant_id == current_identity.tenant_id)
 
     if search_request.type:
         stmt = stmt.where(Memory.type == search_request.type)
 
-    # Tenant filtering
-    if current_identity.tenant_id is not None:
-        stmt = stmt.where(Memory.tenant_id == current_identity.tenant_id)
-    # else: global/system-level identity can see all
+    # Use text-based search with multiple patterns for better matching
+    query_terms = search_request.query.lower().split()
+    memory_conditions = []
+    
+    for term in query_terms:
+        if len(term) > 2:  # Only search for terms longer than 2 characters
+            memory_conditions.append(Memory.text.ilike(f"%{term}%"))
+    
+    if memory_conditions:
+        # Use OR condition for multiple terms
+        stmt = stmt.where(or_(*memory_conditions))
+    else:
+        # Fallback to exact query match
+        stmt = stmt.where(Memory.text.ilike(f"%{search_request.query}%"))
 
-    # Use text-based search since pgvector functions are not available
-    stmt = stmt.where(Memory.text.ilike(f"%{search_request.query}%")).limit(
-        search_request.limit
-    )
-
+    stmt = stmt.limit(search_request.limit)
     result = await db.execute(stmt)
     memories = result.scalars().all()
 
     # Use simple text-based scoring since vectors are not available
     filtered_memories = []
     for memory in memories:
-        # Simple text similarity based on query presence
+        # Calculate similarity score based on query term matches
         query_lower = search_request.query.lower()
         text_lower = memory.text.lower()
-        if query_lower in text_lower:
-            memory.score = 0.8
+        
+        # Count matching words
+        query_words = set(query_lower.split())
+        text_words = set(text_words for text_words in text_lower.split() if len(text_words) > 2)
+        matching_words = len(query_words.intersection(text_words))
+        
+        if matching_words > 0:
+            # Score based on word matches and query length
+            memory.score = min(0.9, 0.3 + (matching_words / len(query_words)) * 0.6)
+        elif query_lower in text_lower:
+            memory.score = 0.7
         else:
-            memory.score = 0.3
-        filtered_memories.append(memory)
+            memory.score = 0.2
+            
+        # Only include memories above similarity threshold
+        score = memory.score or 0.0
+        if score >= search_request.similarity_threshold:
+            filtered_memories.append(memory)
+
+    # Sort by score descending
+    filtered_memories.sort(key=lambda x: x.score or 0, reverse=True)
 
     return [MemoryResponse.from_orm(memory) for memory in filtered_memories]
 

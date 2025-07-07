@@ -1,0 +1,262 @@
+{
+	"id": "financial-services-env-id",
+	"name": "Financial Services - Local Environment",
+	"values": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "default",
+			"enabled": true,
+			"description": "API base URL for local development"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "secret",
+			"enabled": true,
+			"description": "JWT token for admin user - will be set after admin creation"
+		},
+		{
+			"key": "api_key_secret",
+			"value": "",
+			"type": "secret",
+			"enabled": true,
+			"description": "API key secret for programmatic access - will be set after API key creation"
+		},
+		{
+			"key": "webhook_id",
+			"value": "",
+			"type": "default",
+			"enabled": true,
+			"description": "Webhook ID - will be set after webhook creation"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "secret",
+			"enabled": true,
+			"description": "Refresh token for session management - will be set after login"
+		},
+		{
+			"key": "advisor_token",
+			"value": "",
+			"type": "secret",
+			"enabled": true,
+			"description": "JWT token for financial advisor - will be set after advisor creation"
+		},
+		{
+			"key": "compliance_token",
+			"value": "",
+			"type": "secret",
+			"enabled": true,
+			"description": "JWT token for compliance officer - will be set after compliance officer creation"
+		},
+		{
+			"key": "invitation_id",
+			"value": "",
+			"type": "default",
+			"enabled": true,
+			"description": "Invitation ID - will be set after invitation creation"
+		},
+		{
+			"key": "memory_id",
+			"value": "",
+			"type": "default",
+			"enabled": true,
+			"description": "Memory ID - will be set after memory creation"
+		},
+		{
+			"key": "api_key_id",
+			"value": "",
+			"type": "default",
+			"enabled": true,
+			"description": "API key ID - will be set after API key creation"
+		},
+		{
+			"key": "tenant_id",
+			"value": "financial-corp-001",
+			"type": "default",
+			"enabled": true,
+			"description": "Tenant ID for multi-tenancy testing"
+		},
+		{
+			"key": "admin_external_id",
+			"value": "admin@financialcorp.com",
+			"type": "default",
+			"enabled": true,
+			"description": "External ID for admin user"
+		},
+		{
+			"key": "advisor_external_id",
+			"value": "advisor_001",
+			"type": "default",
+			"enabled": true,
+			"description": "External ID for financial advisor"
+		},
+		{
+			"key": "compliance_external_id",
+			"value": "compliance_001",
+			"type": "default",
+			"enabled": true,
+			"description": "External ID for compliance officer"
+		},
+		{
+			"key": "invitation_email",
+			"value": "newadvisor@financialcorp.com",
+			"type": "default",
+			"enabled": true,
+			"description": "Email for invitation testing"
+		},
+		{
+			"key": "webhook_url",
+			"value": "https://webhook.site/your-unique-url",
+			"type": "default",
+			"enabled": true,
+			"description": "Webhook URL for testing - replace with your actual webhook URL"
+		},
+		{
+			"key": "webhook_secret",
+			"value": "webhook_secret_123",
+			"type": "secret",
+			"enabled": true,
+			"description": "Secret for webhook HMAC signatures"
+		},
+		{
+			"key": "client_id_1",
+			"value": "CS001",
+			"type": "default",
+			"enabled": true,
+			"description": "Client ID for John Smith"
+		},
+		{
+			"key": "client_id_2",
+			"value": "CS002",
+			"type": "default",
+			"enabled": true,
+			"description": "Client ID for Sarah Johnson"
+		},
+		{
+			"key": "memory_type",
+			"value": "client_interaction",
+			"type": "default",
+			"enabled": true,
+			"description": "Memory type for client interactions"
+		},
+		{
+			"key": "search_query_1",
+			"value": "retirement portfolio rebalancing",
+			"type": "default",
+			"enabled": true,
+			"description": "Search query for retirement-related memories"
+		},
+		{
+			"key": "search_query_2",
+			"value": "ESG sustainable investment funds",
+			"type": "default",
+			"enabled": true,
+			"description": "Search query for ESG-related memories"
+		},
+		{
+			"key": "similarity_threshold",
+			"value": "0.7",
+			"type": "default",
+			"enabled": true,
+			"description": "Similarity threshold for memory search"
+		},
+		{
+			"key": "search_limit",
+			"value": "5",
+			"type": "default",
+			"enabled": true,
+			"description": "Limit for search results"
+		},
+		{
+			"key": "memory_ttl_days",
+			"value": "2555",
+			"type": "default",
+			"enabled": true,
+			"description": "Time to live for memories in days"
+		},
+		{
+			"key": "api_key_expires_at",
+			"value": "2025-12-31T23:59:59Z",
+			"type": "default",
+			"enabled": true,
+			"description": "Expiration date for API keys"
+		},
+		{
+			"key": "invitation_expires_at",
+			"value": "2025-12-31T23:59:59Z",
+			"type": "default",
+			"enabled": true,
+			"description": "Expiration date for invitations"
+		},
+		{
+			"key": "admin_claims",
+			"value": "{\"organization\": \"financial_corp\", \"department\": \"it\", \"purpose\": \"system_administration\"}",
+			"type": "default",
+			"enabled": true,
+			"description": "Claims for admin user"
+		},
+		{
+			"key": "advisor_claims",
+			"value": "{\"organization\": \"financial_corp\", \"department\": \"investment\", \"purpose\": \"financial_advisor\", \"licenses\": [\"series_7\", \"series_63\"]}",
+			"type": "default",
+			"enabled": true,
+			"description": "Claims for financial advisor"
+		},
+		{
+			"key": "compliance_claims",
+			"value": "{\"organization\": \"financial_corp\", \"department\": \"compliance\", \"purpose\": \"compliance_officer\", \"certifications\": [\"finra_compliance\"]}",
+			"type": "default",
+			"enabled": true,
+			"description": "Claims for compliance officer"
+		},
+		{
+			"key": "webhook_events",
+			"value": "[\"identity.created\", \"identity.updated\", \"memory.created\", \"invitation.accepted\"]",
+			"type": "default",
+			"enabled": true,
+			"description": "Events to trigger webhooks"
+		},
+		{
+			"key": "api_key_permissions",
+			"value": "[\"read\", \"write\"]",
+			"type": "default",
+			"enabled": true,
+			"description": "Permissions for API keys"
+		},
+		{
+			"key": "memory_metadata_1",
+			"value": "{\"client_id\": \"CS001\", \"interaction_type\": \"phone_call\", \"advisor_id\": \"advisor_001\", \"priority\": \"medium\", \"follow_up_required\": true}",
+			"type": "default",
+			"enabled": true,
+			"description": "Metadata for first client interaction memory"
+		},
+		{
+			"key": "memory_metadata_2",
+			"value": "{\"client_id\": \"CS002\", \"interaction_type\": \"email\", \"advisor_id\": \"advisor_001\", \"priority\": \"low\", \"follow_up_required\": false}",
+			"type": "default",
+			"enabled": true,
+			"description": "Metadata for second client interaction memory"
+		},
+		{
+			"key": "memory_text_1",
+			"value": "Client John Smith called regarding his retirement portfolio. He's concerned about market volatility and wants to discuss rebalancing his 401k allocation. He mentioned he's 5 years from retirement and wants to be more conservative.",
+			"type": "default",
+			"enabled": true,
+			"description": "Text for first client interaction memory"
+		},
+		{
+			"key": "memory_text_2",
+			"value": "Client Sarah Johnson emailed about her investment portfolio performance. She's interested in ESG funds and wants to discuss sustainable investment options. She has a moderate risk tolerance and is 15 years from retirement.",
+			"type": "default",
+			"enabled": true,
+			"enabled": true,
+			"description": "Text for second client interaction memory"
+		}
+	],
+	"_postman_variable_scope": "environment",
+	"_postman_exported_at": "2025-07-07T08:30:00.000Z",
+	"_postman_exported_using": "Postman/10.0.0"
+} 
