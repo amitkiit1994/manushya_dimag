@@ -2,11 +2,14 @@
 Main FastAPI application for Manushya.ai
 """
 
+import asyncio
 import time
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Any
 
+import redis.asyncio as redis
 import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -15,12 +18,26 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.middleware.sessions import SessionMiddleware
 
 # Import routers after they're created
-from manushya.api.v1 import identity, memory, policy
+from manushya.api.v1 import (
+    api_keys,
+    events,
+    identity,
+    invitations,
+    memory,
+    policy,
+    sessions,
+    sso,
+    webhooks,
+)
+from manushya.api.v1.policy import admin_router, monitoring_router
 from manushya.config import settings
-from manushya.core.exceptions import ManushyaException
-from manushya.db.database import close_db, init_db
+from manushya.core.auth import get_optional_identity
+from manushya.core.exceptions import ErrorHandler, ManushyaException
+from manushya.core.rate_limiter import RateLimiter, rate_limit_middleware
+from manushya.db.database import check_db_health, close_db, get_db, init_db
 
 # Configure structured logging
 structlog.configure(
@@ -52,6 +69,8 @@ REQUEST_LATENCY = Histogram(
     "http_request_duration_seconds", "HTTP request latency", ["method", "endpoint"]
 )
 
+# Redis connection
+from manushya.core.redis_client import get_redis, close_redis
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -66,10 +85,15 @@ async def lifespan(app: FastAPI):
         logger.error("Failed to initialize database", error=str(e))
         raise
 
+    await get_redis()
+    # Optionally: start background cleanup task
+    asyncio.create_task(background_cleanup_jobs())
+
     yield
 
     # Shutdown
     logger.info("Shutting down Manushya.ai application")
+    await close_redis()
     await close_db()
 
 
@@ -96,6 +120,12 @@ app.add_middleware(
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1"],
+)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.jwt_secret_key,
+    max_age=3600,  # 1 hour
 )
 
 
@@ -144,6 +174,31 @@ async def add_process_time_header(request: Request, call_next):
         process_time=process_time,
     )
 
+    return response
+
+
+@app.middleware("http")
+async def rate_limiting_http_middleware(request: Request, call_next):
+    # Skip rate limiting for health, metrics, and docs
+    if request.url.path in ["/healthz", "/metrics", "/v1/docs", "/v1/openapi.json", "/v1/redoc"]:
+        return await call_next(request)
+
+    # Get DB session
+    async for db in get_db():
+        # Get identity (if any)
+        identity = await get_optional_identity(request, db)
+        # Run rate limiting check
+        await rate_limit_middleware(request, db, identity)
+        break
+
+    response = await call_next(request)
+    # Add rate limit headers if available
+    limit_info = getattr(request.state, "rate_limit_info", None)
+    if limit_info:
+        response.headers["X-RateLimit-Limit"] = str(limit_info["limit"])
+        response.headers["X-RateLimit-Remaining"] = str(limit_info["remaining"])
+        response.headers["X-RateLimit-Reset"] = str(int(limit_info["reset_time"]))
+        response.headers["Retry-After"] = str(limit_info["window_seconds"])
     return response
 
 
@@ -210,46 +265,50 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handle general exceptions."""
-    logger.error(
-        "Unhandled exception",
-        request_id=getattr(request.state, "request_id", None),
-        error=str(exc),
-        exc_info=True,
-    )
+async def global_exception_handler(request: Request, exc: Exception):
+    return await ErrorHandler.handle_exception(request, exc)
 
-    # In production, don't expose internal error details
-    error_message = "Internal server error"
-    if settings.debug:
-        error_message = f"Internal server error: {str(exc)}"
 
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "error": error_message,
-            "request_id": getattr(request.state, "request_id", None),
-        },
-    )
+@app.on_event("startup")
+async def startup_event():
+    await get_redis()
+    # Optionally: start background cleanup task
+    asyncio.create_task(background_cleanup_jobs())
+
+async def background_cleanup_jobs():
+    while True:
+        try:
+            async for db in get_db():
+                await RateLimiter.cleanup_expired_limits(db)
+                # Retry failed webhook deliveries
+                from manushya.services.webhook_service import WebhookService
+                await WebhookService.retry_failed_deliveries(db)
+                # Clean up old webhook deliveries (weekly)
+                if datetime.utcnow().weekday() == 0:  # Monday
+                    await WebhookService.cleanup_old_deliveries(db)
+                break
+            # Add more cleanup jobs as needed
+        except Exception as e:
+            logger.error("Background cleanup error", error=str(e))
+        await asyncio.sleep(3600)  # Run every hour
 
 
 # Health check endpoint
 @app.get("/healthz")
 async def health_check() -> dict[str, Any]:
-    """Health check endpoint."""
-    from manushya.db.database import check_db_health
-
-    db_healthy = await check_db_health()
-
-    health_status = {
-        "status": "healthy" if db_healthy else "unhealthy",
-        "timestamp": time.time(),
-        "version": settings.version,
-        "environment": settings.environment,
-        "services": {"database": "healthy" if db_healthy else "unhealthy"},
+    db_ok = await check_db_health()
+    redis_ok = False
+    try:
+        r = await get_redis()
+        await r.ping()
+        redis_ok = True
+    except Exception:
+        redis_ok = False
+    return {
+        "database": db_ok,
+        "redis": redis_ok,
+        "status": "ok" if db_ok and redis_ok else "degraded"
     }
-
-    return health_status
 
 
 # Metrics endpoint
@@ -263,6 +322,14 @@ async def metrics():
 app.include_router(identity.router, prefix="/v1/identity", tags=["identity"])
 app.include_router(memory.router, prefix="/v1/memory", tags=["memory"])
 app.include_router(policy.router, prefix="/v1/policy", tags=["policy"])
+app.include_router(api_keys.router, prefix="/v1/api-keys", tags=["api-keys"])
+app.include_router(invitations.router, prefix="/v1/invitations", tags=["invitations"])
+app.include_router(sessions.router, prefix="/v1/sessions", tags=["sessions"])
+app.include_router(events.router, prefix="/v1/events", tags=["events"])
+app.include_router(sso.router, prefix="/v1/sso", tags=["sso"])
+app.include_router(admin_router)
+app.include_router(monitoring_router)
+app.include_router(webhooks.router)
 
 
 # Root endpoint

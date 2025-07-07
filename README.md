@@ -1,328 +1,239 @@
 # Manushya.ai - Secure Identity + Memory Infrastructure
 
-A production-ready, enterprise-grade backend for secure identity and memory infrastructure for autonomous AI agents.
+## 📚 Table of Contents
+1. [Features](#features)
+2. [Architecture](#architecture)
+3. [Tech Stack](#tech-stack)
+4. [Quick Start](#quick-start)
+5. [API Usage](#api-usage)
+6. [Features Matrix](#features-matrix)
+7. [Security & Compliance](#security--compliance)
+8. [Monitoring & Observability](#monitoring--observability)
+9. [Development](#development)
+10. [Production Deployment](#production-deployment)
+11. [Troubleshooting](#troubleshooting)
+12. [Contributing](#contributing)
+13. [License & Support](#license--support)
+14. [Roadmap](#roadmap)
+
+---
 
 ## 🚀 Features
 
-- **🔐 Secure Identity Management**: JWT-based authentication with role-based access control
-- **🧠 Memory Storage**: PostgreSQL with text-based memory search (vector search available with pgvector extension)
-- **📋 Policy Engine**: JSON Logic-based policy enforcement for fine-grained access control
+- **🔐 Multi-Tenant Identity Management**: Role-based, tenant-aware, JWT & SSO authentication
+- **🧠 Memory Storage**: Vector-based semantic search, metadata, TTL, soft/hard delete
+- **📋 Policy Engine**: JSON Logic-based, priority, resource/action-level, caching
+- **🔑 API Key Management**: Programmatic access, scopes, expiration, revocation, test endpoint
+- **✉️ Invitations**: Email onboarding, token validation, acceptance, revocation, resend
+- **🗝️ Sessions & Refresh Tokens**: Device info, session revocation, cleanup, refresh flow
+- **📣 Identity Events & Audit Logging**: Async event publishing, delivery, retry, stats, GDPR
+- **🌐 Real SSO Integration**: OAuth2/OIDC (Google, extensible)
+- **🔔 Webhook System**: Real-time notifications, async delivery, HMAC, retries, stats
+- **🚦 Rate Limiting**: Role/tenant-aware, Redis caching, admin/monitoring endpoints
+- **📈 Monitoring & Analytics**: Prometheus metrics, health checks, admin endpoints
+- **⚡ Background Tasks**: Celery for async jobs, retries, cleanup
 - **🔒 Field-Level Encryption**: Fernet encryption for sensitive data
-- **📊 Audit Logging**: Comprehensive audit trail with immutable logs
-- **⚡ Background Processing**: Celery with Redis for async embedding generation
-- **📈 Monitoring**: Prometheus metrics and structured logging
 - **🐳 Containerized**: Docker Compose for easy deployment
-- **🔍 Text-Based Memory Search**: Simple text search with scoring (vector similarity available with pgvector)
-- **🔄 GDPR Compliance**: Soft/hard delete with TTL support
+- **🔄 GDPR Compliance**: Soft/hard delete, retention, audit trail
+
+---
 
 ## 🏗️ Architecture
 
-### Simple Overview
-![Simple Architecture](docs/architecture-simple.svg)
+### Core Modules
+- **Identity**: Multi-role, multi-tenant, JWT, SSO, API keys, invitations
+- **Memory**: Vector search, metadata, TTL, soft/hard delete
+- **Policy**: JSON Logic, RBAC, resource/action-level, priority, caching
+- **Audit/Events**: Full audit trail, before/after state, GDPR, async events
+- **Webhooks**: Register, update, deliveries, retry, stats, HMAC
+- **Rate Limiting**: Role/tenant-aware, Redis, admin/monitoring endpoints
+- **Monitoring**: Prometheus, health checks, analytics
+- **Background Tasks**: Celery for async jobs, retries, cleanup
 
-### Detailed Architecture
-![Detailed Architecture](docs/architecture.svg)
+### Data Flow
+- All endpoints are tenant-aware and enforce RBAC via the policy engine.
+- All actions are logged for audit/compliance.
+- Webhooks and events are triggered for all major changes.
+
+---
 
 ## 🛠️ Tech Stack
-
-- **Language**: Python 3.10 (downgraded for json_logic compatibility)
+- **Language**: Python 3.10
 - **Framework**: FastAPI
-- **ORM**: SQLAlchemy 2.x with Alembic
-- **Database**: PostgreSQL (pgvector extension optional)
+- **ORM**: SQLAlchemy 2.x + Alembic
+- **Database**: PostgreSQL (pgvector for vector search)
 - **Cache/Queue**: Redis + Celery
-- **Auth**: JWT with python-jose
-- **Policy Engine**: JSON Logic (patched for Python 3.10 compatibility)
+- **Auth**: JWT, SSO (OAuth2/OIDC), API Keys
+- **Policy Engine**: JSON Logic
 - **Monitoring**: Prometheus + Structlog
 - **Containerization**: Docker + Docker Compose
+
+---
 
 ## 📦 Quick Start
 
 ### Prerequisites
-
 - Docker and Docker Compose
 - Python 3.10
 - Git
 
 ### 1. Clone the Repository
-
 ```bash
-git clone https://github.com/manushya-ai/backend.git
-cd manushya-ai-backend
+git clone https://github.com/manushya-ai/dimag.git
+cd dimag
 ```
 
 ### 2. Environment Setup
-
-Create a `.env` file based on `env.example`:
-
 ```bash
-# Copy the example environment file
 cp env.example .env
-
-# Generate secure keys (recommended for production)
+# Generate secure keys for production
 SECRET_KEY=$(openssl rand -hex 32)
 JWT_SECRET_KEY=$(openssl rand -hex 32)
 ENCRYPTION_KEY=$(openssl rand -hex 32)
-
 # Update .env with your generated keys
 ```
 
 ### 3. Start Services
-
 ```bash
-# Start all services
 docker-compose up -d
-
-# Check service status
 docker-compose ps
-
-# View logs
 docker-compose logs -f api
 ```
 
 ### 4. Verify Installation
-
 ```bash
-# Check API health
 curl http://localhost:8000/healthz
-
-# Access API documentation
 open http://localhost:8000/v1/docs
 ```
 
 ### 5. Create Your First Identity
-
 ```bash
 curl -X POST "http://localhost:8000/v1/identity/" \
   -H "Content-Type: application/json" \
   -d '{
     "external_id": "test-user",
-    "role": "user",
-    "name": "Test User",
-    "description": "Test identity for endpoint testing"
+    "role": "user"
   }'
 ```
+
+---
 
 ## 🔌 API Usage
 
-### 1. Create Identity
+### Major Endpoint Groups
+- **Identity**: `/v1/identity/` (CRUD, bulk, self, JWT, SSO)
+- **API Keys**: `/v1/api-keys/` (CRUD, test)
+- **Invitations**: `/v1/invitations/` (CRUD, validate, accept, resend)
+- **Sessions**: `/v1/sessions/` (CRUD, refresh, cleanup, test)
+- **Events**: `/v1/events/` (CRUD, by identity, types, stats, retry, cleanup, test)
+- **Policy**: `/v1/policy/` (CRUD, bulk, test)
+- **Memory**: `/v1/memory/` (CRUD, search, bulk)
+- **Webhooks**: `/v1/webhooks/` (CRUD, deliveries, retry, stats, events)
+- **SSO**: `/v1/sso/` (login, callback)
+- **Admin/Monitoring**: `/v1/admin/rate-limits`, `/v1/monitoring/`
 
+### Example: Create API Key
 ```bash
-curl -X POST "http://localhost:8000/v1/identity/" \
+curl -X POST "http://localhost:8000/v1/api-keys/" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "external_id": "agent-001",
-    "role": "agent",
-    "name": "Test Agent",
-    "description": "Test agent for API testing"
+    "name": "Production Key",
+    "scopes": ["read", "write"],
+    "expires_in_days": 365
   }'
 ```
 
-**Response:**
-```json
-{
-  "access_token": "jwt_token_here",
-  "token_type": "bearer",
-  "identity": {
-    "id": "uuid",
-    "external_id": "agent-001",
-    "role": "agent",
-    "claims": {},
-    "is_active": true,
-    "created_at": "2025-07-04T10:37:04.546173Z",
-    "updated_at": "2025-07-04T10:37:04.546173Z"
-  }
-}
+### Example: Initiate SSO Login
+```bash
+curl -X GET "http://localhost:8000/v1/sso/login/google"
 ```
 
-### 2. Create Memory
-
+### Example: Register Webhook
 ```bash
-curl -X POST "http://localhost:8000/v1/memory/" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+curl -X POST "http://localhost:8000/v1/webhooks/" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "text": "The user prefers dark mode interfaces",
-    "type": "text",
-    "meta_data": {"category": "ui", "priority": "high"}
+    "name": "Identity Events Webhook",
+    "url": "https://webhook.site/your-url",
+    "events": ["identity.created", "identity.updated"]
   }'
 ```
 
-### 3. Search Memories
+---
 
-```bash
-curl -X POST "http://localhost:8000/v1/memory/search" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "user interface preferences",
-    "limit": 5
-  }'
-```
+## 🗂️ Features Matrix
 
-**Note:** Currently uses text-based search with scoring (0.8 for exact matches, 0.3 for others). Vector similarity search requires pgvector extension setup.
+| Feature                | Description                                      | Status |
+|------------------------|--------------------------------------------------|--------|
+| Multi-tenancy          | Tenant isolation, tenant_id on all models        | ✅     |
+| API Keys               | Create, list, update, revoke, test, scopes       | ✅     |
+| Invitations            | Email, accept, validate, revoke, resend          | ✅     |
+| Sessions               | Refresh tokens, revoke, cleanup, test            | ✅     |
+| Identity Events        | Publish, retry, stats, types, by identity        | ✅     |
+| Rate Limiting          | Role/tenant-aware, Redis, admin/monitoring       | ✅     |
+| SSO Integration        | OAuth2/OIDC (Google), extensible                 | ✅     |
+| Webhooks               | Register, update, deliveries, retry, stats       | ✅     |
+| Policy Engine          | JSON Logic, priority, caching, test endpoint     | ✅     |
+| Memory System          | Vector search, metadata, TTL, soft/hard delete   | ✅     |
+| Audit Logging          | Full trail, before/after, GDPR, retention        | ✅     |
+| Monitoring             | Prometheus, health, analytics, admin endpoints   | ✅     |
+| Background Tasks       | Celery, async jobs, retries, cleanup             | ✅     |
 
-### 4. Create Policy
+---
 
-```bash
-curl -X POST "http://localhost:8000/v1/policy/" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "role": "agent",
-    "rule": {
-      "and": [
-        {"==": [{"var": "action"}, "read"]},
-        {"==": [{"var": "resource"}, "memory"]}
-      ]
-    },
-    "description": "Agents can read memories",
-    "priority": 100,
-    "is_active": true
-  }'
-```
+## 🔒 Security & Compliance
+- **JWT, SSO, API Key Auth**: All endpoints require authentication
+- **Role & Policy Engine**: JSON Logic, RBAC, resource/action-level
+- **Audit Logging**: All actions logged, before/after state, GDPR
+- **Encryption**: Field-level for sensitive data
+- **Rate Limiting**: Global, role/tenant-aware, Redis-backed
+- **Webhook Security**: HMAC signatures, tenant isolation
+- **Compliance**: Retention, tamper-evident logs, GDPR
 
-### 5. Test Policy
+---
 
-```bash
-curl -X POST "http://localhost:8000/v1/policy/test?role=agent&action=read&resource=memory" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "identity": {"role": "agent"}
-  }'
-```
+## 📈 Monitoring & Observability
+- **Health Checks**: `/health`
+- **Prometheus Metrics**: `/metrics`
+- **Admin/Monitoring Endpoints**: `/v1/admin/rate-limits`, `/v1/monitoring/`
+- **Structured Logging**: Request IDs, error tracking
+- **Celery Monitoring**: Flower dashboard at `http://localhost:5555`
+
+---
 
 ## 🔧 Development
 
 ### Local Development Setup
-
 ```bash
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+source venv/bin/activate
 pip install -e ".[dev]"
-
-# Run tests
 pytest
-
-# Format code
 black manushya/
 ruff check manushya/
-
-# Run linting
-ruff check .
 ```
 
 ### Database Migrations
-
 ```bash
-# Create new migration
 alembic revision --autogenerate -m "Description"
-
-# Apply migrations
 alembic upgrade head
-
-# Rollback migration
 alembic downgrade -1
 ```
 
 ### Running Tests
-
 ```bash
-# Run all tests
 pytest
-
-# Run with coverage
 pytest --cov=manushya --cov-report=html
-
-# Run specific test
-pytest tests/test_memory.py::test_create_memory
 ```
 
-## 📊 Monitoring
-
-### Health Checks
-
-```bash
-curl http://localhost:8000/healthz
-```
-
-### Metrics
-
-```bash
-curl http://localhost:8000/metrics
-```
-
-### Logs
-
-```bash
-# View application logs
-docker-compose logs -f api
-
-# View Celery worker logs
-docker-compose logs -f celery-worker
-
-# View database logs
-docker-compose logs -f postgres
-```
-
-### Celery Monitoring
-
-Access Flower dashboard at: http://localhost:5555
-- Username: admin
-- Password: admin
-
-## 🔒 Security Features
-
-### Authentication
-
-- JWT-based authentication with configurable expiration
-- Role-based access control (RBAC)
-- Secure token storage and validation
-
-### Authorization
-
-- JSON Logic-based policy engine (patched for Python 3.10 compatibility)
-- Fine-grained access control
-- Policy caching for performance
-
-### Data Protection
-
-- Field-level encryption using Fernet
-- Secure key management
-- GDPR-compliant data handling
-
-### Audit & Compliance
-
-- Immutable audit logs
-- Request/response logging
-- Compliance-ready audit trails
-
-## ⚠️ Current Limitations
-
-### Known Issues
-
-1. **Python Version**: Downgraded to Python 3.10 for json_logic compatibility
-2. **Vector Search**: Requires pgvector extension setup for full vector similarity search
-3. **Health Check**: Docker health checks may show as unhealthy but API functions correctly
-4. **Memory Search**: Currently uses text-based search with simple scoring
-5. **Flower Dashboard**: May restart occasionally but doesn't affect core functionality
-
-### Workarounds
-
-- **Policy Creation**: Works with patched json_logic library
-- **Memory Search**: Uses text-based search with scoring (0.8 for exact matches, 0.3 for others)
-- **Vector Search**: Can be enabled by installing pgvector extension in PostgreSQL
-- **Health Checks**: API endpoints work correctly despite Docker health check status
+---
 
 ## 🚀 Production Deployment
 
 ### Environment Variables
-
-Set production environment variables:
-
+Set production environment variables in `.env`:
 ```bash
 ENVIRONMENT=production
 DEBUG=false
@@ -333,57 +244,29 @@ ENCRYPTION_KEY=your-production-encryption-key
 ```
 
 ### Scaling
-
 ```bash
-# Scale API instances
 docker-compose up -d --scale api=3
-
-# Scale Celery workers
 docker-compose up -d --scale celery-worker=4
 ```
 
 ### Backup
-
 ```bash
-# Database backup
 docker-compose exec postgres pg_dump -U manushya manushya > backup.sql
-
-# Restore database
 docker-compose exec -T postgres psql -U manushya manushya < backup.sql
 ```
 
-## 🔧 Troubleshooting
+---
 
-### Common Issues
+## 🛠️ Troubleshooting
+- **API Container Unhealthy**: Check logs with `docker-compose logs api`
+- **Database/Redis Issues**: Check container status and credentials
+- **Memory Search Not Working**: Ensure memories exist and query matches text content
+- **JSON Logic Errors**: Ensure Python 3.10 is used and json_logic patch is applied
+- **Health Checks**: API endpoints work even if Docker health check is unhealthy
 
-1. **API Container Unhealthy**: Check logs with `docker-compose logs api` - API may still be functional
-2. **Database Connection Issues**: Verify PostgreSQL is running and credentials are correct
-3. **Redis Connection Issues**: Check Redis container status and password configuration
-4. **Memory Search Not Working**: Ensure memories exist and query matches text content
-5. **JSON Logic Errors**: Ensure Python 3.10 is used and json_logic patch is applied
-
-### Debug Commands
-
-```bash
-# Check all container status
-docker-compose ps
-
-# View specific service logs
-docker-compose logs -f [service-name]
-
-# Restart specific service
-docker-compose restart [service-name]
-
-# Rebuild and restart all services
-docker-compose down && docker-compose build --no-cache && docker-compose up -d
-
-# Test API endpoints
-curl http://localhost:8000/healthz
-curl http://localhost:8000/v1/docs
-```
+---
 
 ## 🤝 Contributing
-
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
@@ -391,31 +274,36 @@ curl http://localhost:8000/v1/docs
 5. Run linting and tests: `ruff check .`
 6. Submit a pull request
 
-## 📄 License
+---
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **Documentation**: [docs.manushya.ai](https://docs.manushya.ai)
+## 📄 License & Support
+- **License**: MIT License - see [LICENSE](LICENSE)
+- **Docs**: [docs.manushya.ai](https://docs.manushya.ai)
 - **Issues**: [GitHub Issues](https://github.com/manushya-ai/backend/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/manushya-ai/backend/discussions)
 
-## 🔮 Roadmap
+---
 
-- [x] Basic API endpoints (Identity, Memory, Policy)
+## 🔮 Roadmap
+- [x] Multi-tenant support
+- [x] API key management
+- [x] Invitation system
+- [x] Session management & refresh tokens
+- [x] Identity events & audit logging
+- [x] Rate limiting (role/tenant-aware)
+- [x] Real SSO provider integration (OAuth2/OIDC)
+- [x] Webhook system for real-time notifications
+- [x] Advanced policy engine features
+- [x] Background tasks & cleanup jobs
+- [x] Monitoring & analytics endpoints
+- [x] Production-ready error handling
 - [x] Docker containerization
-- [x] JWT authentication
-- [x] Text-based memory search
-- [x] JSON Logic policy engine (patched for Python 3.10)
-- [x] Comprehensive monitoring and metrics
-- [x] Audit logging
-- [ ] pgvector extension setup
+- [x] Redis caching
+- [x] Celery background tasks
+- [x] Health checks & Prometheus metrics
+- [x] Complete Postman collection
 - [ ] gRPC interface
 - [ ] GraphQL API
-- [ ] Multi-tenant support
-- [ ] Advanced vector search algorithms
-- [ ] Real-time notifications
 - [ ] Advanced analytics dashboard
 - [ ] Kubernetes deployment manifests
 - [ ] Terraform infrastructure as code 

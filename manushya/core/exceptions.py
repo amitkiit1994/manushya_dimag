@@ -4,6 +4,12 @@ Custom exceptions for Manushya.ai
 
 from typing import Any
 
+import structlog
+from fastapi import Request, status
+from fastapi.responses import JSONResponse
+
+logger = structlog.get_logger()
+
 
 class ManushyaException(Exception):
     """Base exception for Manushya.ai application."""
@@ -84,3 +90,29 @@ class ExternalServiceError(ManushyaException):
     """Raised when external service calls fail."""
 
     pass
+
+
+class ErrorHandler:
+    @staticmethod
+    async def handle_exception(request: Request, exc: Exception):
+        logger.error("Unhandled exception", error=str(exc), url=str(request.url))
+        request_id = getattr(request.state, "request_id", None)
+        if request_id is None:
+            request_id = ""
+        request_id = str(request_id)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": "Internal server error",
+                "details": str(exc),
+                "request_id": request_id,
+            },
+        )
+
+    @staticmethod
+    def format_error(message: str, details: str | None = None, code: int = 400):
+        return {
+            "error": message,
+            "details": details,
+            "code": code
+        }

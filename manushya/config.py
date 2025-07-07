@@ -81,13 +81,49 @@ class Settings(BaseSettings):
     postgres_password: str | None = Field(default=None)
     flower_user: str | None = Field(default=None)
     flower_password: str | None = Field(default=None)
+    
+    # SSO/OAuth2 specific fields
+    google_client_id: str | None = Field(default=None)
+    google_client_secret: str | None = Field(default=None)
+    google_userinfo_url: str | None = Field(default=None)
+    google_authorize_url: str | None = Field(default=None)
+    google_token_url: str | None = Field(default=None)
+    sso_base_url: str | None = Field(default=None)
+    sso_callback_path: str | None = Field(default=None)
+    
+    # Webhook specific fields
+    webhook_retry_delays: str | None = Field(default=None)
+    webhook_max_retry_attempts: int | None = Field(default=None)
+
+    # SSO/OAuth2 config
+    sso_providers: dict = {
+        "google": {
+            "client_id": "GOOGLE_CLIENT_ID",
+            "client_secret": "GOOGLE_CLIENT_SECRET",
+            "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+            "access_token_url": "https://oauth2.googleapis.com/token",
+            "userinfo_url": "https://openidconnect.googleapis.com/v1/userinfo",
+            "scope": "openid email profile",
+            "redirect_uri": "http://localhost:8000/v1/sso/callback/google"
+        }
+        # Add more providers as needed
+    }
 
     @validator("encryption_key")
     def validate_encryption_key(cls, v):
         """Validate encryption key is 32 bytes (256 bits)."""
-        if len(v.encode()) != 32:
-            raise ValueError("Encryption key must be exactly 32 bytes")
-        return v
+        import base64
+        try:
+            # Try to decode as base64 first
+            decoded = base64.b64decode(v)
+            if len(decoded) != 32:
+                raise ValueError("Encryption key must be exactly 32 bytes when decoded")
+            return v
+        except Exception:
+            # If base64 decode fails, check if it's a raw 32-byte string
+            if len(v.encode()) != 32:
+                raise ValueError("Encryption key must be exactly 32 bytes")
+            return v
 
     @property
     def cors_origins_list(self) -> list[str]:

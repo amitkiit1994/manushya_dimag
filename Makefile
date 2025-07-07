@@ -108,7 +108,7 @@ logs-celery:
 
 # Health check
 health:
-	curl -f http://localhost:8000/healthz
+	curl -f http://localhost:8000/health
 
 # API docs
 docs:

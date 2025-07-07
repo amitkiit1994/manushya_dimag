@@ -1,0 +1,1912 @@
+{
+	"info": {
+		"_postman_id": "manushya-ai-api-collection",
+		"name": "Manushya.ai API Collection",
+		"description": "Complete API collection for testing Manushya.ai identity, memory, and policy management system",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health & Status",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/healthz",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"healthz"
+							]
+						},
+						"description": "Check if the system is healthy and database is connected"
+					},
+					"response": []
+				},
+				{
+					"name": "Root Endpoint",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								""
+							]
+						},
+						"description": "Get system information and available endpoints"
+					},
+					"response": []
+				},
+				{
+					"name": "Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/metrics",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"metrics"
+							]
+						},
+						"description": "Get Prometheus metrics for monitoring"
+					},
+					"response": []
+				}
+			],
+			"description": "System health and status endpoints"
+		},
+		{
+			"name": "Authentication & Identity",
+			"item": [
+				{
+					"name": "Create Admin Identity",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"external_id\": \"admin@manushya.ai\",\n  \"role\": \"admin\",\n  \"claims\": {\n    \"purpose\": \"system_admin\",\n    \"organization\": \"manushya_ai\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/identity/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								""
+							]
+						},
+						"description": "Create an admin identity and get access token"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Financial Advisor",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"external_id\": \"advisor_001\",\n  \"role\": \"advisor\",\n  \"claims\": {\n    \"purpose\": \"financial_advisor\",\n    \"organization\": \"financial_services\",\n    \"department\": \"investment\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/identity/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								""
+							]
+						},
+						"description": "Create a financial advisor identity"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Compliance Officer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"external_id\": \"compliance_001\",\n  \"role\": \"compliance\",\n  \"claims\": {\n    \"purpose\": \"compliance_officer\",\n    \"organization\": \"financial_services\",\n    \"department\": \"compliance\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/identity/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								""
+							]
+						},
+						"description": "Create a compliance officer identity"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Customer Service Agent",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"external_id\": \"support_001\",\n  \"role\": \"support\",\n  \"claims\": {\n    \"purpose\": \"customer_service\",\n    \"organization\": \"financial_services\",\n    \"department\": \"customer_service\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/identity/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								""
+							]
+						},
+						"description": "Create a customer service agent identity"
+					},
+					"response": []
+				},
+				{
+					"name": "List All Identities",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/identity/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								""
+							]
+						},
+						"description": "List all identities (requires admin access)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Identity by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/identity/{{identity_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								"{{identity_id}}"
+							]
+						},
+						"description": "Get specific identity details"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Current Identity",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role\": \"updated_role\",\n  \"claims\": {\n    \"updated_field\": \"new_value\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/identity/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								"me"
+							]
+						},
+						"description": "Update current user's identity information"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Identity",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/identity/{{identity_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								"{{identity_id}}"
+							]
+						},
+						"description": "Delete an identity (soft delete)"
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Delete Identities",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"identity_ids\": [\n    \"{{identity_id_1}}\",\n    \"{{identity_id_2}}\",\n    \"{{identity_id_3}}\"\n  ],\n  \"hard_delete\": false,\n  \"reason\": \"Cleanup of inactive identities\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/identity/bulk-delete",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"identity",
+								"bulk-delete"
+							]
+						},
+						"description": "Bulk delete multiple identities with detailed response"
+					},
+					"response": []
+				}
+			],
+			"description": "Identity management and authentication endpoints"
+		},
+		{
+			"name": "API Keys",
+			"item": [
+				{
+					"name": "Create API Key",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"name\": \"Production API Key\",\n  \"scopes\": [\"read\", \"write\"],\n  \"expires_in_days\": 365\n}"},
+						"url": {"raw": "{{base_url}}/v1/api-keys/", "host": ["{{base_url}}"], "path": ["v1", "api-keys", ""]},
+						"description": "Create a new API key with scopes and expiration"
+					},
+					"response": []
+				},
+				{
+					"name": "List API Keys",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/api-keys/", "host": ["{{base_url}}"], "path": ["v1", "api-keys", ""]},
+						"description": "List all API keys for the current identity"
+					},
+					"response": []
+				},
+				{
+					"name": "Get API Key",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/api-keys/{{api_key_id}}", "host": ["{{base_url}}"], "path": ["v1", "api-keys", "{{api_key_id}}"]},
+						"description": "Get details of a specific API key"
+					},
+					"response": []
+				},
+				{
+					"name": "Update API Key",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"name\": \"Updated API Key Name\",\n  \"scopes\": [\"read\", \"write\", \"admin\"],\n  \"expires_in_days\": 730\n}"},
+						"url": {"raw": "{{base_url}}/v1/api-keys/{{api_key_id}}", "host": ["{{base_url}}"], "path": ["v1", "api-keys", "{{api_key_id}}"]},
+						"description": "Update an existing API key"
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke API Key",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/api-keys/{{api_key_id}}", "host": ["{{base_url}}"], "path": ["v1", "api-keys", "{{api_key_id}}"]},
+						"description": "Revoke an API key"
+					},
+					"response": []
+				},
+				{
+					"name": "Test API Key Authentication",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "X-API-Key", "value": "{{api_key_value}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/identity/me", "host": ["{{base_url}}"], "path": ["v1", "identity", "me"]},
+						"description": "Test API key authentication by accessing protected endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Test API Key Endpoint",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"test_data\": \"API key test payload\"\n}"},
+						"url": {"raw": "{{base_url}}/v1/api-keys/test", "host": ["{{base_url}}"], "path": ["v1", "api-keys", "test"]},
+						"description": "Test API key endpoint functionality"
+					},
+					"response": []
+				}
+			],
+			"description": "API key management endpoints for programmatic access"
+		},
+		{
+			"name": "Invitations",
+			"item": [
+				{
+					"name": "Create Invitation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"role\": \"advisor\",\n  \"claims\": {\n    \"department\": \"investment\",\n    \"region\": \"north\"\n  },\n  \"expires_in_days\": 7\n}"},
+						"url": {"raw": "{{base_url}}/v1/invitations/", "host": ["{{base_url}}"], "path": ["v1", "invitations", ""]},
+						"description": "Create a new invitation for a user"
+					},
+					"response": []
+				},
+				{
+					"name": "List Invitations",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/invitations/", "host": ["{{base_url}}"], "path": ["v1", "invitations", ""]},
+						"description": "List all invitations for the current tenant"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Invitation",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/invitations/{{invitation_id}}", "host": ["{{base_url}}"], "path": ["v1", "invitations", "{{invitation_id}}"]},
+						"description": "Get details of a specific invitation"
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Invitation Token",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {"raw": "{{base_url}}/v1/invitations/validate/{{invitation_token}}", "host": ["{{base_url}}"], "path": ["v1", "invitations", "validate", "{{invitation_token}}"]},
+						"description": "Validate an invitation token"
+					},
+					"response": []
+				},
+				{
+					"name": "Accept Invitation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"external_id\": \"newuser_001\"\n}"},
+						"url": {"raw": "{{base_url}}/v1/invitations/accept/{{invitation_token}}", "host": ["{{base_url}}"], "path": ["v1", "invitations", "accept", "{{invitation_token}}"]},
+						"description": "Accept an invitation and create identity"
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke Invitation",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/invitations/{{invitation_id}}", "host": ["{{base_url}}"], "path": ["v1", "invitations", "{{invitation_id}}"]},
+						"description": "Revoke an invitation"
+					},
+					"response": []
+				},
+				{
+					"name": "Resend Invitation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/invitations/resend/{{invitation_id}}", "host": ["{{base_url}}"], "path": ["v1", "invitations", "resend", "{{invitation_id}}"]},
+						"description": "Resend an invitation email"
+					},
+					"response": []
+				}
+			],
+			"description": "Invitation management endpoints for user onboarding"
+		},
+		{
+			"name": "Sessions",
+			"item": [
+				{
+					"name": "List My Sessions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{user_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/sessions/", "host": ["{{base_url}}"], "path": ["v1", "sessions", ""]},
+						"description": "List all active sessions for the current identity"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Session",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{user_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/sessions/{{session_id}}", "host": ["{{base_url}}"], "path": ["v1", "sessions", "{{session_id}}"]},
+						"description": "Get details of a specific session"
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke Session",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{user_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/sessions/{{session_id}}", "host": ["{{base_url}}"], "path": ["v1", "sessions", "{{session_id}}"]},
+						"description": "Revoke a specific session"
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke All Sessions",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{user_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/sessions/", "host": ["{{base_url}}"], "path": ["v1", "sessions", ""]},
+						"description": "Revoke all sessions for the current identity"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"},
+						"url": {"raw": "{{base_url}}/v1/sessions/refresh", "host": ["{{base_url}}"], "path": ["v1", "sessions", "refresh"]},
+						"description": "Refresh access token using refresh token"
+					},
+					"response": []
+				},
+				{
+					"name": "Cleanup Expired Sessions",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/sessions/cleanup", "host": ["{{base_url}}"], "path": ["v1", "sessions", "cleanup"]},
+						"description": "Clean up expired sessions (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Test Session Auth",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{user_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/sessions/test", "host": ["{{base_url}}"], "path": ["v1", "sessions", "test"]},
+						"description": "Test session authentication"
+					},
+					"response": []
+				}
+			],
+			"description": "Session management endpoints for token-based authentication"
+		},
+		{
+			"name": "Events",
+			"item": [
+				{
+					"name": "List Events",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/events/", "host": ["{{base_url}}"], "path": ["v1", "events", ""]},
+						"description": "List identity events with optional filtering"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Event",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/events/{{event_id}}", "host": ["{{base_url}}"], "path": ["v1", "events", "{{event_id}}"]},
+						"description": "Get details of a specific event"
+					},
+					"response": []
+				},
+				{
+					"name": "Retry Event Delivery",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/events/{{event_id}}/retry", "host": ["{{base_url}}"], "path": ["v1", "events", "{{event_id}}", "retry"]},
+						"description": "Retry delivery of a failed event"
+					},
+					"response": []
+				},
+				{
+					"name": "Cleanup Old Events",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {"raw": "{{base_url}}/v1/events/cleanup?days_old=90", "host": ["{{base_url}}"], "path": ["v1", "events", "cleanup"], "query": [{"key": "days_old", "value": "90"}]},
+						"description": "Clean up old delivered events (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Test Event Publishing",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"event_type\": \"test.event\",\n  \"payload\": {\n    \"message\": \"Test event payload\",\n    \"timestamp\": \"2024-01-01T00:00:00Z\"\n  }\n}"},
+						"url": {"raw": "{{base_url}}/v1/events/test", "host": ["{{base_url}}"], "path": ["v1", "events", "test"]},
+						"description": "Test event publishing (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Events by Identity",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {"raw": "{{base_url}}/v1/events/identity/{{identity_id}}", "host": ["{{base_url}}"], "path": ["v1", "events", "identity", "{{identity_id}}"]},
+						"description": "Get events for a specific identity"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Event Types",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {"raw": "{{base_url}}/v1/events/types", "host": ["{{base_url}}"], "path": ["v1", "events", "types"]},
+						"description": "Get list of available event types"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Event Statistics",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+						"url": {"raw": "{{base_url}}/v1/events/stats", "host": ["{{base_url}}"], "path": ["v1", "events", "stats"]},
+						"description": "Get event statistics and metrics"
+					},
+					"response": []
+				}
+			],
+			"description": "Identity events and audit logging endpoints"
+		},
+		{
+			"name": "Policy Management",
+			"item": [
+				{
+					"name": "Create Admin Policy",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role\": \"admin\",\n  \"rule\": {\n    \"==\": [{\"var\": \"role\"}, \"admin\"]\n  },\n  \"description\": \"Admin can perform all actions\",\n  \"priority\": 100,\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/policy/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"policy",
+								""
+							]
+						},
+						"description": "Create admin policy with full access"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Advisor Policy",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role\": \"advisor\",\n  \"rule\": {\n    \"and\": [\n      {\"in\": [{\"var\": \"action\"}, [\"read\", \"write\"]]},\n      {\"==\": [{\"var\": \"resource\"}, \"memory\"]},\n      {\"!=\": [{\"var\": \"action\"}, \"delete\"]}\n    ]\n  },\n  \"description\": \"Financial Advisors can create and view client memories, but cannot delete them\",\n  \"priority\": 80,\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/policy/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"policy",
+								""
+							]
+						},
+						"description": "Create advisor policy with limited permissions"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Compliance Policy",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role\": \"compliance\",\n  \"rule\": {\n    \"and\": [\n      {\"in\": [{\"var\": \"action\"}, [\"read\"]]},\n      {\"in\": [{\"var\": \"resource\"}, [\"memory\", \"audit_log\"]]}\n    ]\n  },\n  \"description\": \"Compliance Officers can view all memories and audit logs, but cannot modify them\",\n  \"priority\": 90,\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/policy/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"policy",
+								""
+							]
+						},
+						"description": "Create compliance policy with read-only access"
+					},
+					"response": []
+				},
+				{
+					"name": "List All Policies",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/policy/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"policy",
+								""
+							]
+						},
+						"description": "List all policies"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Policy by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/policy/{{policy_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"policy",
+								"{{policy_id}}"
+							]
+						},
+						"description": "Get specific policy details"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Policy",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"Updated policy description\",\n  \"priority\": 95,\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/policy/{{policy_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"policy",
+								"{{policy_id}}"
+							]
+						},
+						"description": "Update an existing policy"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Policy",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/policy/{{policy_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"policy",
+								"{{policy_id}}"
+							]
+						},
+						"description": "Delete a policy"
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Delete Policies",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"policy_ids\": [\n    \"{{policy_id_1}}\",\n    \"{{policy_id_2}}\",\n    \"{{policy_id_3}}\"\n  ],\n  \"reason\": \"Cleanup of deprecated policies\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/policy/bulk-delete",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"policy",
+								"bulk-delete"
+							]
+						},
+						"description": "Bulk delete multiple policies with detailed response"
+					},
+					"response": []
+				},
+				{
+					"name": "Test Policy Evaluation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role\": \"advisor\",\n  \"action\": \"read\",\n  \"resource\": \"memory\",\n  \"context\": {\n    \"memory_type\": \"meeting_note\",\n    \"client_id\": \"CS001\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/policy/test?role=advisor&action=read&resource=memory",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"policy",
+								"test"
+							],
+							"query": [
+								{
+									"key": "role",
+									"value": "advisor"
+								},
+								{
+									"key": "action",
+									"value": "read"
+								},
+								{
+									"key": "resource",
+									"value": "memory"
+								}
+							]
+						},
+						"description": "Test policy evaluation for specific role and action"
+					},
+					"response": []
+				}
+			],
+			"description": "Policy management and evaluation endpoints"
+		},
+		{
+			"name": "Memory Management",
+			"item": [
+				{
+					"name": "Create Meeting Note Memory",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{advisor_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Client meeting with John Smith on 2024-01-15. Discussed retirement planning. Client is 45 years old, has $500K in 401k, wants to retire at 65. Recommended diversified portfolio with 60% stocks, 30% bonds, 10% alternatives. Client agreed to monthly review meetings.\",\n  \"type\": \"meeting_note\",\n  \"metadata\": {\n    \"client_id\": \"CS001\",\n    \"meeting_date\": \"2024-01-15\",\n    \"advisor\": \"advisor_001\",\n    \"tags\": [\"retirement\", \"planning\"]\n  },\n  \"ttl_days\": 365\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "Create a meeting note memory as an advisor"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Investment Recommendation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{advisor_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Investment recommendation for Sarah Johnson: Based on risk assessment, recommend Vanguard Target Retirement 2045 Fund (VTIVX) for 70% of portfolio, Vanguard Total Stock Market ETF (VTI) for 20%, and Vanguard Total Bond Market ETF (BND) for 10%. Expected annual return: 6-8%.\",\n  \"type\": \"investment_recommendation\",\n  \"metadata\": {\n    \"client_id\": \"CS002\",\n    \"recommendation_date\": \"2024-01-20\",\n    \"advisor\": \"advisor_001\",\n    \"risk_level\": \"moderate\",\n    \"tags\": [\"investment\", \"recommendation\"]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "Create an investment recommendation memory"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Audit Report",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{compliance_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Compliance audit completed for Q1 2024. All advisor recommendations reviewed. No violations found. All trades properly documented. Risk assessments up to date. Continuing monitoring required for high-net-worth clients.\",\n  \"type\": \"audit_report\",\n  \"metadata\": {\n    \"audit_period\": \"Q1_2024\",\n    \"auditor\": \"compliance_001\",\n    \"status\": \"passed\",\n    \"tags\": [\"audit\", \"compliance\"]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "Create an audit report memory (should fail for compliance role)"
+					},
+					"response": []
+				},
+				{
+					"name": "List My Memories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "List memories for the current user"
+					},
+					"response": []
+				},
+				{
+					"name": "List Memories by Type",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/memory/?memory_type=meeting_note",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							],
+							"query": [
+								{
+									"key": "memory_type",
+									"value": "meeting_note"
+								}
+							]
+						},
+						"description": "List memories filtered by type"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Memory by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/memory/{{memory_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								"{{memory_id}}"
+							]
+						},
+						"description": "Get specific memory details"
+					},
+					"response": []
+				},
+				{
+					"name": "Search Memories",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"retirement planning\",\n  \"type\": \"meeting_note\",\n  \"limit\": 10,\n  \"similarity_threshold\": 0.7\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/search",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								"search"
+							]
+						},
+						"description": "Search memories using semantic similarity"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Memory",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Updated meeting notes with additional client preferences.\",\n  \"metadata\": {\n    \"updated_by\": \"advisor_001\",\n    \"update_reason\": \"client_preferences_added\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/{{memory_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								"{{memory_id}}"
+							]
+						},
+						"description": "Update an existing memory"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Memory (Soft Delete)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/memory/{{memory_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								"{{memory_id}}"
+							]
+						},
+						"description": "Soft delete a memory (default behavior)"
+					},
+					"response": []
+				},
+				{
+					"name": "Hard Delete Memory",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/memory/{{memory_id}}?hard_delete=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								"{{memory_id}}"
+							],
+							"query": [
+								{
+									"key": "hard_delete",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Permanently delete a memory"
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Delete Memories",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"memory_ids\": [\n    \"{{memory_id_1}}\",\n    \"{{memory_id_2}}\",\n    \"{{memory_id_3}}\"\n  ],\n  \"hard_delete\": false,\n  \"reason\": \"Cleanup of outdated memories\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/bulk-delete",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								"bulk-delete"
+							]
+						},
+						"description": "Bulk delete multiple memories with detailed response"
+					},
+					"response": []
+				}
+			],
+			"description": "Memory creation, retrieval, search, and management endpoints"
+		},
+		{
+			"name": "Enterprise Testing Scenarios",
+			"item": [
+				{
+					"name": "Scenario 1: Advisor Creates Recommendation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{advisor_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"New investment recommendation for high-net-worth client: Recommend 60% equities (VTI, VXUS), 30% bonds (BND), 10% alternatives (GLD). Risk tolerance: moderate-high. Time horizon: 15 years.\",\n  \"type\": \"investment_recommendation\",\n  \"metadata\": {\n    \"client_id\": \"CS006\",\n    \"risk_level\": \"high\",\n    \"portfolio_size\": \"$2M+\",\n    \"advisor\": \"advisor_001\",\n    \"tags\": [\"high_net_worth\", \"investment\", \"recommendation\"]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "Step 1: Advisor creates a new investment recommendation"
+					},
+					"response": []
+				},
+				{
+					"name": "Scenario 2: Compliance Reviews (Read Only)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{compliance_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "Step 2: Compliance officer reviews all memories (should see advisor's recommendation)"
+					},
+					"response": []
+				},
+				{
+					"name": "Scenario 3: Compliance Tries to Modify (Should Fail)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{compliance_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Compliance review completed - recommendation approved\",\n  \"metadata\": {\n    \"reviewed_by\": \"compliance_001\",\n    \"status\": \"approved\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/{{memory_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								"{{memory_id}}"
+							]
+						},
+						"description": "Step 3: Compliance tries to modify memory (should be denied)"
+					},
+					"response": []
+				},
+				{
+					"name": "Scenario 4: Support Agent Limited Access",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{support_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "Step 4: Support agent tries to access memories (should see limited data)"
+					},
+					"response": []
+				},
+				{
+					"name": "Scenario 5: Admin Full Access",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								""
+							]
+						},
+						"description": "Step 5: Admin reviews all system data"
+					},
+					"response": []
+				}
+			],
+			"description": "Complete enterprise workflow testing scenarios"
+		},
+		{
+			"name": "SSO",
+			"item": [
+				{
+					"name": "Initiate SSO Login (Google)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/sso/login/google",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "sso", "login", "google"]
+						},
+						"description": "Initiate SSO login with Google. Redirects to Google's OAuth consent screen."
+					},
+					"response": []
+				},
+				{
+					"name": "SSO Callback (Google)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/sso/callback/google?code=AUTH_CODE&state=STATE",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "sso", "callback", "google"],
+							"query": [
+								{"key": "code", "value": "AUTH_CODE"},
+								{"key": "state", "value": "STATE"}
+							]
+						},
+						"description": "Handle SSO callback from Google. Creates or updates user and returns access/refresh tokens."
+					},
+					"response": []
+				}
+			],
+			"description": "Single Sign-On (SSO) endpoints for OAuth2/OIDC integration with providers like Google, Microsoft, etc."
+		},
+		{
+			"name": "Admin - Rate Limits",
+			"item": [
+				{
+					"name": "List All Rate Limits",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/rate-limits",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "admin", "rate-limits"]
+						},
+						"description": "List all current rate limit records (admin only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Reset/Clear All Rate Limits",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/rate-limits",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "admin", "rate-limits"]
+						},
+						"description": "Delete all rate limit records (admin only). Use with caution!"
+					},
+					"response": []
+				}
+			],
+			"description": "Admin endpoints for managing rate limits."
+		},
+		{
+			"name": "Monitoring & Analytics",
+			"item": [
+				{
+					"name": "Current Rate Limit Info",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/monitoring/rate-limits",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "monitoring", "rate-limits"]
+						},
+						"description": "Get current rate limit status for the calling identity."
+					},
+					"response": []
+				},
+				{
+					"name": "API Usage Analytics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/monitoring/usage",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "monitoring", "usage"]
+						},
+						"description": "Get API usage analytics (stubbed for now)."
+					},
+					"response": []
+				}
+			],
+			"description": "Monitoring and analytics endpoints for API usage and rate limits."
+		},
+		{
+			"name": "Webhooks",
+			"item": [
+				{
+					"name": "Create Webhook",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Identity Events Webhook\",\n  \"url\": \"https://webhook.site/your-unique-url\",\n  \"events\": [\"identity.created\", \"identity.updated\", \"identity.deleted\"]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", ""]
+						},
+						"description": "Create a new webhook registration for real-time notifications."
+					},
+					"response": []
+				},
+				{
+					"name": "List Webhooks",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", ""]
+						},
+						"description": "List all webhooks for the current tenant."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Webhook",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/{{webhook_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", "{{webhook_id}}"]
+						},
+						"description": "Get details of a specific webhook."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Webhook",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Identity Events Webhook\",\n  \"events\": [\"identity.created\", \"identity.updated\", \"identity.deleted\", \"memory.created\"]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/{{webhook_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", "{{webhook_id}}"]
+						},
+						"description": "Update an existing webhook configuration."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Webhook",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/{{webhook_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", "{{webhook_id}}"]
+						},
+						"description": "Delete a webhook registration."
+					},
+					"response": []
+				},
+				{
+					"name": "List Webhook Deliveries",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/{{webhook_id}}/deliveries",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", "{{webhook_id}}", "deliveries"]
+						},
+						"description": "List delivery attempts for a specific webhook."
+					},
+					"response": []
+				},
+				{
+					"name": "Retry Webhook Delivery",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/{{webhook_id}}/deliveries/{{delivery_id}}/retry",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", "{{webhook_id}}", "deliveries", "{{delivery_id}}", "retry"]
+						},
+						"description": "Retry a failed webhook delivery."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Webhook Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/stats",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", "stats"]
+						},
+						"description": "Get webhook statistics and delivery metrics."
+					},
+					"response": []
+				},
+				{
+					"name": "List Webhook Deliveries",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/{{webhook_id}}/deliveries",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", "{{webhook_id}}", "deliveries"]
+						},
+						"description": "List delivery attempts for a specific webhook."
+					},
+					"response": []
+				},
+				{
+					"name": "Retry Webhook Delivery",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/{{webhook_id}}/deliveries/{{delivery_id}}/retry",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", "{{webhook_id}}", "deliveries", "{{delivery_id}}", "retry"]
+						},
+						"description": "Retry a failed webhook delivery."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Supported Events",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/webhooks/events",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "webhooks", "events"]
+						},
+						"description": "Get list of supported webhook events."
+					},
+					"response": []
+				}
+			],
+			"description": "Webhook management endpoints for real-time notifications and event delivery."
+		}
+
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-generate tokens if not set",
+					"if (!pm.environment.get('admin_token')) {",
+					"    console.log('Admin token not set, you may need to create an admin identity first');",
+					"}",
+					"if (!pm.environment.get('advisor_token')) {",
+					"    console.log('Advisor token not set, you may need to create an advisor identity first');",
+					"}",
+					"if (!pm.environment.get('compliance_token')) {",
+					"    console.log('Compliance token not set, you may need to create a compliance identity first');",
+					"}",
+					"if (!pm.environment.get('support_token')) {",
+					"    console.log('Support token not set, you may need to create a support identity first');",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "advisor_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "compliance_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "support_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "identity_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "policy_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "memory_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "api_key_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "api_key_value",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "invitation_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "invitation_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "session_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "event_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "webhook_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "delivery_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+} 

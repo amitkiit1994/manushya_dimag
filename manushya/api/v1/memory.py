@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ from manushya.core.policy_engine import PolicyEngine
 from manushya.db.database import get_db
 from manushya.db.models import AuditLog, Identity, Memory
 from manushya.services.embedding_service import generate_embedding
+from manushya.services.webhook_service import WebhookService
 from manushya.tasks.memory_tasks import create_memory_embedding_task
 
 router = APIRouter()
@@ -50,6 +51,7 @@ class MemoryResponse(BaseModel):
     ttl_days: int | None
     created_at: datetime
     updated_at: datetime
+    tenant_id: uuid.UUID | None = None
 
     class Config:
         from_attributes = True
@@ -64,7 +66,20 @@ class MemorySearchRequest(BaseModel):
     )
 
 
-@router.post("/", response_model=MemoryResponse)
+class BulkDeleteMemoryRequest(BaseModel):
+    memory_ids: list[uuid.UUID] = Field(..., description="List of memory IDs to delete")
+    hard_delete: bool = Field(default=False, description="Perform hard delete instead of soft delete")
+    reason: str | None = Field(None, description="Reason for bulk deletion")
+
+
+class BulkDeleteMemoryResponse(BaseModel):
+    deleted_count: int
+    failed_count: int
+    failed_memories: list[dict[str, Any]]
+    message: str
+
+
+@router.post("/", response_model=MemoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_memory(
     memory_data: MemoryCreate,
     current_identity: Identity = Depends(get_current_identity),
@@ -91,6 +106,7 @@ async def create_memory(
         type=memory_data.type,
         meta_data=memory_data.metadata,
         ttl_days=memory_data.ttl_days,
+        tenant_id=current_identity.tenant_id,
     )
 
     db.add(memory)
@@ -102,6 +118,7 @@ async def create_memory(
         event_type="memory.created",
         memory_id=memory.id,
         actor_id=current_identity.id,
+        tenant_id=current_identity.tenant_id,
         after_state={
             "text": memory.text,
             "type": memory.type,
@@ -113,6 +130,21 @@ async def create_memory(
 
     # Trigger async embedding generation
     create_memory_embedding_task.delay(str(memory.id))
+
+    # Trigger webhook for memory creation
+    await WebhookService.trigger_webhook(
+        db=db,
+        event_type="memory.created",
+        payload={
+            "id": str(memory.id),
+            "content": memory.text,
+            "memory_type": memory.type,
+            "metadata": memory.meta_data,
+            "tenant_id": str(memory.tenant_id),
+            "created_at": memory.created_at.isoformat()
+        },
+        tenant_id=str(memory.tenant_id)
+    )
 
     return MemoryResponse.from_orm(memory)
 
@@ -131,6 +163,11 @@ async def get_memory(
             ~Memory.is_deleted,
         )
     )
+    # Tenant filtering
+    if current_identity.tenant_id is not None:
+        stmt = stmt.where(Memory.tenant_id == current_identity.tenant_id)
+    # else: global/system-level identity can see all
+
     result = await db.execute(stmt)
     memory = result.scalar_one_or_none()
 
@@ -168,6 +205,11 @@ async def list_memories(
     if memory_type:
         stmt = stmt.where(Memory.type == memory_type)
 
+    # Tenant filtering
+    if current_identity.tenant_id is not None:
+        stmt = stmt.where(Memory.tenant_id == current_identity.tenant_id)
+    # else: global/system-level identity can see all
+
     stmt = stmt.order_by(Memory.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(stmt)
     memories = result.scalars().all()
@@ -201,6 +243,11 @@ async def search_memories(
 
     if search_request.type:
         stmt = stmt.where(Memory.type == search_request.type)
+
+    # Tenant filtering
+    if current_identity.tenant_id is not None:
+        stmt = stmt.where(Memory.tenant_id == current_identity.tenant_id)
+    # else: global/system-level identity can see all
 
     # Use text-based search since pgvector functions are not available
     stmt = stmt.where(Memory.text.ilike(f"%{search_request.query}%")).limit(
@@ -240,6 +287,11 @@ async def update_memory(
             ~Memory.is_deleted,
         )
     )
+    # Tenant filtering
+    if current_identity.tenant_id is not None:
+        stmt = stmt.where(Memory.tenant_id == current_identity.tenant_id)
+    # else: global/system-level identity can see all
+
     result = await db.execute(stmt)
     memory = result.scalar_one_or_none()
 
@@ -278,6 +330,7 @@ async def update_memory(
             event_type="memory.updated",
             memory_id=memory.id,
             actor_id=current_identity.id,
+            tenant_id=current_identity.tenant_id,
             before_state=before_state,
             after_state={
                 "text": memory.text,
@@ -293,10 +346,25 @@ async def update_memory(
         if "text" in update_data:
             create_memory_embedding_task.delay(str(memory.id))
 
+    # Trigger webhook for memory update
+    await WebhookService.trigger_webhook(
+        db=db,
+        event_type="memory.updated",
+        payload={
+            "id": str(memory.id),
+            "content": memory.text,
+            "memory_type": memory.type,
+            "metadata": memory.meta_data,
+            "tenant_id": str(memory.tenant_id),
+            "updated_at": memory.updated_at.isoformat()
+        },
+        tenant_id=str(memory.tenant_id)
+    )
+
     return MemoryResponse.from_orm(memory)
 
 
-@router.delete("/{memory_id}")
+@router.delete("/{memory_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_memory(
     memory_id: uuid.UUID,
     hard_delete: bool = Query(False, description="Perform hard delete"),
@@ -311,6 +379,11 @@ async def delete_memory(
             ~Memory.is_deleted,
         )
     )
+    # Tenant filtering
+    if current_identity.tenant_id is not None:
+        stmt = stmt.where(Memory.tenant_id == current_identity.tenant_id)
+    # else: global/system-level identity can see all
+
     result = await db.execute(stmt)
     memory = result.scalar_one_or_none()
 
@@ -341,6 +414,7 @@ async def delete_memory(
         event_type=event_type,
         memory_id=memory.id,
         actor_id=current_identity.id,
+        tenant_id=current_identity.tenant_id,
         before_state={
             "text": memory.text,
             "type": memory.type,
@@ -350,4 +424,152 @@ async def delete_memory(
     db.add(audit_log)
     await db.commit()
 
-    return {"message": "Memory deleted successfully"}
+    # Store memory data for webhook before deletion
+    memory_data = {
+        "id": str(memory.id),
+        "content": memory.text,
+        "memory_type": memory.type,
+        "metadata": memory.meta_data,
+        "tenant_id": str(memory.tenant_id),
+        "deleted_at": datetime.utcnow().isoformat()
+    }
+
+    # Trigger webhook for memory deletion
+    await WebhookService.trigger_webhook(
+        db=db,
+        event_type="memory.deleted",
+        payload=memory_data,
+        tenant_id=str(memory.tenant_id)
+    )
+
+    return None
+
+
+@router.post("/bulk-delete", response_model=BulkDeleteMemoryResponse)
+async def bulk_delete_memories(
+    delete_request: BulkDeleteMemoryRequest,
+    current_identity: Identity = Depends(get_current_identity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bulk delete memories (requires appropriate permissions)."""
+    # Check permissions
+    policy_engine = PolicyEngine(db)
+    await policy_engine.check_memory_access(
+        current_identity, "delete", memory_type=None
+    )
+
+    deleted_count = 0
+    failed_count = 0
+    failed_memories = []
+
+    for memory_id in delete_request.memory_ids:
+        try:
+            stmt = select(Memory).where(
+                and_(
+                    Memory.id == memory_id,
+                    Memory.identity_id == current_identity.id,
+                    ~Memory.is_deleted,
+                )
+            )
+            # Tenant filtering
+            if current_identity.tenant_id is not None:
+                stmt = stmt.where(Memory.tenant_id == current_identity.tenant_id)
+            # else: global/system-level identity can see all
+
+            result = await db.execute(stmt)
+            memory = result.scalar_one_or_none()
+
+            if not memory:
+                failed_count += 1
+                failed_memories.append({
+                    "memory_id": str(memory_id),
+                    "error": "Memory not found or not accessible"
+                })
+                continue
+
+            # Check permissions for this specific memory
+            await policy_engine.check_memory_access(
+                current_identity,
+                "delete",
+                memory_type=memory.type,
+                memory_metadata=memory.meta_data,
+            )
+
+            if delete_request.hard_delete:
+                # Hard delete - remove from database
+                await db.delete(memory)
+                event_type = "memory.hard_deleted"
+            else:
+                # Soft delete - mark as deleted
+                memory.is_deleted = True
+                memory.deleted_at = func.now()
+                event_type = "memory.soft_deleted"
+
+            # Create audit log for each deleted memory
+            audit_log = AuditLog(
+                event_type=event_type,
+                memory_id=memory.id,
+                actor_id=current_identity.id,
+                tenant_id=current_identity.tenant_id,
+                before_state={
+                    "text": memory.text,
+                    "type": memory.type,
+                    "metadata": memory.meta_data,
+                },
+                meta_data={
+                    "bulk_operation": True,
+                    "reason": delete_request.reason
+                }
+            )
+            db.add(audit_log)
+
+            deleted_count += 1
+
+        except Exception as e:
+            failed_count += 1
+            failed_memories.append({
+                "memory_id": str(memory_id),
+                "error": str(e)
+            })
+
+    # Commit all changes
+    await db.commit()
+
+    # Create summary audit log for bulk operation
+    summary_audit_log = AuditLog(
+        event_type="memory.bulk_deleted",
+        actor_id=current_identity.id,
+        tenant_id=current_identity.tenant_id,
+        meta_data={
+            "deleted_count": deleted_count,
+            "failed_count": failed_count,
+            "hard_delete": delete_request.hard_delete,
+            "reason": delete_request.reason,
+            "requested_ids": [str(id) for id in delete_request.memory_ids],
+            "failed_memories": failed_memories
+        }
+    )
+    db.add(summary_audit_log)
+    await db.commit()
+
+    # Trigger webhook for bulk deletion
+    await WebhookService.trigger_webhook(
+        db=db,
+        event_type="memory.bulk_deleted",
+        payload={
+            "deleted_count": deleted_count,
+            "failed_count": failed_count,
+            "hard_delete": delete_request.hard_delete,
+            "reason": delete_request.reason,
+            "requested_ids": [str(id) for id in delete_request.memory_ids],
+            "failed_memories": failed_memories
+        },
+        tenant_id=str(current_identity.tenant_id)
+    )
+
+    return BulkDeleteMemoryResponse(
+        deleted_count=deleted_count,
+        failed_count=failed_count,
+        failed_memories=failed_memories,
+        message=f"Bulk delete completed: {deleted_count} deleted, {failed_count} failed"
+    )
