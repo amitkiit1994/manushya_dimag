@@ -1,51 +1,41 @@
 """
-Webhook service for real-time notifications
+Production-grade webhook service with retry logic and delivery tracking
 """
 
+import asyncio
 import hashlib
 import hmac
-import json
+import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
-import structlog
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from manushya.db.models import Webhook, WebhookDelivery
+# Removed circular import - will use celery_app directly if needed
 
-logger = structlog.get_logger()
+logger = logging.getLogger(__name__)
+# Webhook delivery configurations
+WEBHOOK_CONFIG = {
+    "max_retries": 5,
+    "initial_delay": 1.0,  # seconds
+    "max_delay": 300.0,  # 5 minutes
+    "backoff_factor": 2.0,
+    "timeout": 30.0,  # seconds
+    "batch_size": 100,
+    "max_concurrent": 10,
+}
 
 
 class WebhookService:
-    """Service for managing webhook registrations and deliveries."""
+    """Production-grade webhook service with retry logic and delivery tracking."""
 
-    # Supported event types
-    SUPPORTED_EVENTS = [
-        "identity.created",
-        "identity.updated",
-        "identity.deleted",
-        "memory.created",
-        "memory.updated",
-        "memory.deleted",
-        "policy.created",
-        "policy.updated",
-        "policy.deleted",
-        "api_key.created",
-        "api_key.revoked",
-        "invitation.sent",
-        "invitation.accepted",
-        "session.created",
-        "session.revoked",
-        "rate_limit.exceeded"
-    ]
-
-    # Retry configuration
-    MAX_RETRY_ATTEMPTS = 5
-    RETRY_DELAYS = [60, 300, 900, 3600, 7200]  # 1min, 5min, 15min, 1hr, 2hr
+    def __init__(self, db: AsyncSession):
+        self.db = db
 
     @staticmethod
     def generate_secret() -> str:
@@ -56,9 +46,7 @@ class WebhookService:
     def generate_signature(payload: str, secret: str) -> str:
         """Generate HMAC signature for webhook payload."""
         return hmac.new(
-            secret.encode('utf-8'),
-            payload.encode('utf-8'),
-            hashlib.sha256
+            secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
         ).hexdigest()
 
     @staticmethod
@@ -68,7 +56,7 @@ class WebhookService:
         url: str,
         events: list[str],
         created_by: str | None = None,
-        tenant_id: str | None = None
+        tenant_id: str | None = None,
     ) -> Webhook:
         """Create a new webhook registration."""
         # Validate URL
@@ -78,12 +66,12 @@ class WebhookService:
                 raise ValueError("Invalid URL format")
         except Exception as e:
             raise ValueError(f"Invalid URL: {str(e)}") from e
-
         # Validate events
-        invalid_events = [event for event in events if event not in WebhookService.SUPPORTED_EVENTS]
+        invalid_events = [
+            event for event in events if event not in WebhookService.SUPPORTED_EVENTS
+        ]
         if invalid_events:
             raise ValueError(f"Unsupported events: {invalid_events}")
-
         # Create webhook
         webhook = Webhook(
             name=name,
@@ -91,38 +79,30 @@ class WebhookService:
             events=events,
             secret=WebhookService.generate_secret(),
             created_by=created_by,
-            tenant_id=tenant_id
+            tenant_id=tenant_id,
         )
-
         db.add(webhook)
         await db.commit()
         await db.refresh(webhook)
-
         logger.info(
             "Webhook created",
             webhook_id=str(webhook.id),
             name=name,
             url=url,
-            events=events
+            events=events,
         )
-
         return webhook
 
     @staticmethod
     async def get_webhooks(
-        db: AsyncSession,
-        tenant_id: str | None = None,
-        is_active: bool | None = None
+        db: AsyncSession, tenant_id: str | None = None, is_active: bool | None = None
     ) -> list[Webhook]:
         """Get webhooks with optional filtering."""
         stmt = select(Webhook)
-
         if tenant_id:
             stmt = stmt.where(Webhook.tenant_id == tenant_id)
-
         if is_active is not None:
             stmt = stmt.where(Webhook.is_active == is_active)
-
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
@@ -140,13 +120,12 @@ class WebhookService:
         name: str | None = None,
         url: str | None = None,
         events: list[str] | None = None,
-        is_active: bool | None = None
+        is_active: bool | None = None,
     ) -> Webhook | None:
         """Update a webhook."""
         webhook = await WebhookService.get_webhook(db, webhook_id)
         if not webhook:
             return None
-
         if name is not None:
             webhook.name = name
         if url is not None:
@@ -160,23 +139,20 @@ class WebhookService:
             webhook.url = url
         if events is not None:
             # Validate events
-            invalid_events = [event for event in events if event not in WebhookService.SUPPORTED_EVENTS]
+            invalid_events = [
+                event
+                for event in events
+                if event not in WebhookService.SUPPORTED_EVENTS
+            ]
             if invalid_events:
                 raise ValueError(f"Unsupported events: {invalid_events}")
             webhook.events = events
         if is_active is not None:
             webhook.is_active = is_active
-
         webhook.updated_at = datetime.utcnow()
         await db.commit()
         await db.refresh(webhook)
-
-        logger.info(
-            "Webhook updated",
-            webhook_id=str(webhook.id),
-            name=webhook.name
-        )
-
+        logger.info("Webhook updated", webhook_id=str(webhook.id), name=webhook.name)
         return webhook
 
     @staticmethod
@@ -185,16 +161,9 @@ class WebhookService:
         webhook = await WebhookService.get_webhook(db, webhook_id)
         if not webhook:
             return False
-
         await db.delete(webhook)
         await db.commit()
-
-        logger.info(
-            "Webhook deleted",
-            webhook_id=str(webhook_id),
-            name=webhook.name
-        )
-
+        logger.info("Webhook deleted", webhook_id=str(webhook_id), name=webhook.name)
         return True
 
     @staticmethod
@@ -202,196 +171,277 @@ class WebhookService:
         db: AsyncSession,
         event_type: str,
         payload: dict[str, Any],
-        tenant_id: str | None = None
+        tenant_id: str,
+        webhook_id: str | None = None,
     ) -> None:
-        """Trigger webhooks for a specific event."""
-        # Get active webhooks that subscribe to this event
-        stmt = select(Webhook).where(
-            Webhook.is_active,
-            Webhook.events.contains([event_type])
-        )
-
-        if tenant_id:
-            stmt = stmt.where(Webhook.tenant_id == tenant_id)
-
-        result = await db.execute(stmt)
-        webhooks = result.scalars().all()
-
-        # Create delivery records for each webhook
-        for webhook in webhooks:
-            delivery = WebhookDelivery(
-                webhook_id=webhook.id,
-                event_type=event_type,
-                payload=payload,
-                tenant_id=tenant_id
+        """
+        Trigger webhooks for an event with async processing.
+        Args:
+            db: Database session
+            event_type: Type of event (e.g., "identity.created")
+            payload: Event payload
+            tenant_id: Tenant ID for filtering webhooks
+            webhook_id: Specific webhook ID to trigger (optional)
+        """
+        try:
+            # Get webhooks for this event type and tenant
+            webhooks = await WebhookService._get_webhooks_for_event(
+                db, event_type, tenant_id, webhook_id
             )
-            db.add(delivery)
+            if not webhooks:
+                logger.debug(
+                    f"No webhooks found for event {event_type} in tenant {tenant_id}"
+                )
+                return
+            # Create delivery records and queue tasks
+            for webhook in webhooks:
+                delivery = await WebhookService._create_delivery_record(
+                    db, webhook, event_type, payload
+                )
+                # Queue async delivery task
+                try:
+                    # Import here to avoid circular import
+                    from manushya.tasks.webhook_tasks import deliver_webhook_task
+                    deliver_webhook_task.delay(str(delivery.id))
+                    logger.info(
+                        f"Queued webhook delivery {delivery.id} for {webhook.url}"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to queue webhook delivery: {e}")
+                    # Mark delivery as failed
+                    delivery.status = "failed"
+                    delivery.error_message = f"Failed to queue: {str(e)}"
+                    await db.commit()
+        except Exception as e:
+            logger.error(f"Failed to trigger webhooks for event {event_type}: {e}")
 
+    @staticmethod
+    async def _get_webhooks_for_event(
+        db: AsyncSession,
+        event_type: str,
+        tenant_id: str,
+        webhook_id: str | None = None,
+    ) -> list[Webhook]:
+        """Get active webhooks for an event type."""
+        stmt = select(Webhook).where(
+            and_(
+                Webhook.is_active,
+                Webhook.tenant_id == tenant_id,
+                Webhook.events.contains([event_type]),
+            )
+        )
+        if webhook_id:
+            stmt = stmt.where(Webhook.id == webhook_id)
+        result = await db.execute(stmt)
+        return result.scalars().all()
+
+    @staticmethod
+    async def _create_delivery_record(
+        db: AsyncSession, webhook: Webhook, event_type: str, payload: dict[str, Any]
+    ) -> WebhookDelivery:
+        """Create a webhook delivery record."""
+        delivery = WebhookDelivery(
+            webhook_id=webhook.id,
+            event_type=event_type,
+            payload=payload,
+            status="pending",
+            tenant_id=webhook.tenant_id,
+            created_at=datetime.now(UTC),
+        )
+        db.add(delivery)
         await db.commit()
+        await db.refresh(delivery)
+        return delivery
 
-        # Trigger background tasks for delivery
-        for webhook in webhooks:
-            # Get the delivery record we just created
-            stmt = select(WebhookDelivery).where(
-                WebhookDelivery.webhook_id == webhook.id,
-                WebhookDelivery.event_type == event_type
-            ).order_by(WebhookDelivery.created_at.desc()).limit(1)
+    @staticmethod
+    async def send_webhook_delivery(
+        delivery_id: str,
+        webhook_url: str,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+        timeout: float = 30.0,
+    ) -> dict[str, Any]:
+        """
+        Send webhook delivery with retry logic.
+        Args:
+            delivery_id: Delivery record ID
+            webhook_url: Webhook URL
+            payload: Payload to send
+            headers: Headers to include
+            timeout: Request timeout
+        Returns:
+            Delivery result
+        """
+        from manushya.db.database import get_db
 
+        async with get_db() as db:
+            # Get delivery record
+            stmt = select(WebhookDelivery).where(WebhookDelivery.id == delivery_id)
             result = await db.execute(stmt)
             delivery = result.scalar_one_or_none()
-
-            if delivery:
-                # Queue background task for delivery
-                from manushya.tasks.webhook_tasks import deliver_webhook_task
-                deliver_webhook_task.delay(str(delivery.id))
-
-        logger.info(
-            "Webhooks triggered",
-            event_type=event_type,
-            webhook_count=len(webhooks)
-        )
-
-    @staticmethod
-    async def deliver_webhook(delivery_id: str, db: AsyncSession) -> bool:
-        """Deliver a webhook (called by background task)."""
-        # Get delivery record
-        stmt = select(WebhookDelivery).where(WebhookDelivery.id == delivery_id)
-        result = await db.execute(stmt)
-        delivery = result.scalar_one_or_none()
-
-        if not delivery:
-            logger.error("Webhook delivery not found", delivery_id=delivery_id)
-            return False
-
-        # Get webhook
-        webhook = await WebhookService.get_webhook(db, str(delivery.webhook_id))
-        if not webhook or not webhook.is_active:
-            delivery.status = "failed"
-            delivery.response_body = "Webhook not found or inactive"
-            await db.commit()
-            return False
-
-        # Prepare payload
-        payload = {
-            "event": delivery.event_type,
-            "timestamp": delivery.created_at.isoformat(),
-            "data": delivery.payload
-        }
-
-        payload_str = json.dumps(payload, sort_keys=True)
-        signature = WebhookService.generate_signature(payload_str, webhook.secret)
-
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": "Manushya-Webhook/1.0",
-            "X-Webhook-Signature": f"sha256={signature}",
-            "X-Webhook-Event": delivery.event_type,
-            "X-Webhook-Delivery": str(delivery.id)
-        }
-
-        # Attempt delivery
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    webhook.url,
-                    content=payload_str,
-                    headers=headers
+            if not delivery:
+                logger.error(f"Delivery record {delivery_id} not found")
+                return {"success": False, "error": "Delivery record not found"}
+            # Validate URL
+            try:
+                parsed_url = urlparse(webhook_url)
+                if not parsed_url.scheme or not parsed_url.netloc:
+                    raise ValueError("Invalid URL")
+            except Exception as e:
+                await WebhookService._mark_delivery_failed(
+                    db, delivery, f"Invalid URL: {str(e)}"
                 )
-
-                delivery.response_code = response.status_code
-                delivery.response_body = response.text[:1000]  # Limit response body
-                delivery.delivery_attempts += 1
-
-                if 200 <= response.status_code < 300:
-                    delivery.status = "delivered"
-                    delivery.delivered_at = datetime.utcnow()
-                    logger.info(
-                        "Webhook delivered successfully",
-                        delivery_id=str(delivery.id),
-                        webhook_id=str(webhook.id),
-                        status_code=response.status_code
-                    )
-                else:
-                    delivery.status = "failed"
-                    logger.warning(
-                        "Webhook delivery failed",
-                        delivery_id=str(delivery.id),
-                        webhook_id=str(webhook.id),
-                        status_code=response.status_code,
-                        response_text=response.text[:200]
-                    )
-
-        except Exception as e:
-            delivery.status = "failed"
-            delivery.response_body = str(e)[:1000]
-            delivery.delivery_attempts += 1
-            logger.error(
-                "Webhook delivery error",
-                delivery_id=str(delivery.id),
-                webhook_id=str(webhook.id),
-                error=str(e)
+                return {"success": False, "error": f"Invalid URL: {str(e)}"}
+            # Send with retry logic
+            return await WebhookService._send_with_retry(
+                db, delivery, webhook_url, payload, headers, timeout
             )
 
-        # Set up retry if needed
-        if delivery.status == "failed" and delivery.delivery_attempts < WebhookService.MAX_RETRY_ATTEMPTS:
-            delay = WebhookService.RETRY_DELAYS[min(delivery.delivery_attempts - 1, len(WebhookService.RETRY_DELAYS) - 1)]
-            delivery.next_retry_at = datetime.utcnow() + timedelta(seconds=delay)
-            delivery.status = "pending"
-
-        await db.commit()
-        return delivery.status == "delivered"
+    @staticmethod
+    async def _send_with_retry(
+        db: AsyncSession,
+        delivery: WebhookDelivery,
+        webhook_url: str,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+        timeout: float,
+    ) -> dict[str, Any]:
+        """Send webhook with exponential backoff retry logic."""
+        # Add default headers
+        default_headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Manushya-Webhook/1.0",
+            "X-Webhook-Event": delivery.event_type,
+            "X-Webhook-Delivery": str(delivery.id),
+        }
+        headers.update(default_headers)
+        delay = WEBHOOK_CONFIG["initial_delay"]
+        last_error = None
+        for attempt in range(WEBHOOK_CONFIG["max_retries"] + 1):
+            try:
+                # Update delivery status
+                delivery.status = "sending"
+                delivery.attempts = attempt + 1
+                delivery.last_attempt_at = datetime.now(UTC)
+                await db.commit()
+                # Send request
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    response = await client.post(
+                        webhook_url, json=payload, headers=headers
+                    )
+                # Check response
+                if 200 <= response.status_code < 300:
+                    # Success
+                    await WebhookService._mark_delivery_success(
+                        db, delivery, response.status_code, response.text
+                    )
+                    logger.info(
+                        f"Webhook delivery {delivery.id} successful on attempt {attempt + 1}"
+                    )
+                    return {
+                        "success": True,
+                        "status_code": response.status_code,
+                        "response": response.text,
+                    }
+                else:
+                    # HTTP error
+                    error_msg = f"HTTP {response.status_code}: {response.text}"
+                    last_error = error_msg
+                    logger.warning(
+                        f"Webhook delivery {delivery.id} failed with {error_msg}"
+                    )
+            except httpx.TimeoutException:
+                error_msg = f"Timeout after {timeout}s"
+                last_error = error_msg
+                logger.warning(
+                    f"Webhook delivery {delivery.id} timeout on attempt {attempt + 1}"
+                )
+            except httpx.RequestError as e:
+                error_msg = f"Request error: {str(e)}"
+                last_error = error_msg
+                logger.warning(
+                    f"Webhook delivery {delivery.id} request error on attempt {attempt + 1}: {e}"
+                )
+            except Exception as e:
+                error_msg = f"Unexpected error: {str(e)}"
+                last_error = error_msg
+                logger.error(
+                    f"Webhook delivery {delivery.id} unexpected error on attempt {attempt + 1}: {e}"
+                )
+            # If this was the last attempt, mark as failed
+            if attempt == WEBHOOK_CONFIG["max_retries"]:
+                await WebhookService._mark_delivery_failed(db, delivery, last_error)
+                return {"success": False, "error": last_error}
+            # Wait before retry
+            await asyncio.sleep(delay)
+            delay = min(
+                delay * WEBHOOK_CONFIG["backoff_factor"], WEBHOOK_CONFIG["max_delay"]
+            )
+        return {"success": False, "error": "Max retries exceeded"}
 
     @staticmethod
-    async def retry_failed_deliveries(db: AsyncSession) -> int:
-        """Retry failed webhook deliveries that are due for retry."""
-        stmt = select(WebhookDelivery).where(
-            WebhookDelivery.status == "pending",
-            WebhookDelivery.next_retry_at <= datetime.utcnow(),
-            WebhookDelivery.delivery_attempts < WebhookService.MAX_RETRY_ATTEMPTS
-        )
+    async def _mark_delivery_success(
+        db: AsyncSession,
+        delivery: WebhookDelivery,
+        status_code: int,
+        response_text: str,
+    ):
+        """Mark delivery as successful."""
+        delivery.status = "delivered"
+        delivery.status_code = status_code
+        delivery.response_body = response_text
+        delivery.delivered_at = datetime.now(UTC)
+        await db.commit()
 
+    @staticmethod
+    async def _mark_delivery_failed(
+        db: AsyncSession, delivery: WebhookDelivery, error_message: str
+    ):
+        """Mark delivery as failed."""
+        delivery.status = "failed"
+        delivery.error_message = error_message
+        delivery.failed_at = datetime.now(UTC)
+        await db.commit()
+
+    @staticmethod
+    async def get_delivery_stats(
+        db: AsyncSession, tenant_id: str, days: int = 30
+    ) -> dict[str, Any]:
+        """Get webhook delivery statistics."""
+        since = datetime.now(UTC) - timedelta(days=days)
+        # Get delivery counts by status
+        stmt = select(WebhookDelivery).where(
+            and_(
+                WebhookDelivery.tenant_id == tenant_id,
+                WebhookDelivery.created_at >= since,
+            )
+        )
         result = await db.execute(stmt)
         deliveries = result.scalars().all()
-
-        retry_count = 0
-        for delivery in deliveries:
-            success = await WebhookService.deliver_webhook(str(delivery.id), db)
-            if success:
-                retry_count += 1
-
-        logger.info(
-            "Retried failed webhook deliveries",
-            total=len(deliveries),
-            successful=retry_count
-        )
-
-        return retry_count
+        stats = {
+            "total": len(deliveries),
+            "delivered": len([d for d in deliveries if d.status == "delivered"]),
+            "failed": len([d for d in deliveries if d.status == "failed"]),
+            "pending": len([d for d in deliveries if d.status == "pending"]),
+            "sending": len([d for d in deliveries if d.status == "sending"]),
+            "success_rate": 0.0,
+        }
+        if stats["total"] > 0:
+            stats["success_rate"] = stats["delivered"] / stats["total"]
+        return stats
 
     @staticmethod
-    async def cleanup_old_deliveries(db: AsyncSession, days_old: int = 30) -> int:
+    async def cleanup_old_deliveries(db: AsyncSession, days: int = 90) -> int:
         """Clean up old webhook delivery records."""
-        cutoff_date = datetime.utcnow() - timedelta(days=days_old)
-
-        stmt = select(WebhookDelivery).where(
-            WebhookDelivery.created_at < cutoff_date,
-            WebhookDelivery.status.in_(["delivered", "failed"])
-        )
-
+        cutoff = datetime.now(UTC) - timedelta(days=days)
+        stmt = select(WebhookDelivery).where(WebhookDelivery.created_at < cutoff)
         result = await db.execute(stmt)
         old_deliveries = result.scalars().all()
-
-        cleaned_count = 0
+        deleted_count = 0
         for delivery in old_deliveries:
             await db.delete(delivery)
-            cleaned_count += 1
-
-        await db.commit()
-
-        logger.info(
-            "Cleaned up old webhook deliveries",
-            cleaned_count=cleaned_count,
-            cutoff_date=cutoff_date.isoformat()
-        )
-
-        return cleaned_count
-
+            deleted_count += 1
+        if deleted_count > 0:
+            await db.commit()
+            logger.info(f"Cleaned up {deleted_count} old webhook delivery records")
+        return deleted_count

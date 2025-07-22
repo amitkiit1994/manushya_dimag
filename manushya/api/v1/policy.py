@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,13 +79,11 @@ async def create_policy(
     # Check permissions - only admins can create policies
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "write", target_role="admin"
+        current_identity,
+        "write"
     )
-
     # Validate JSON Logic rule (temporarily disabled due to library compatibility issues)
     # TODO: Re-enable validation once json_logic library issues are resolved
-    pass
-
     policy = Policy(
         role=policy_data.role,
         rule=policy_data.rule,
@@ -94,11 +92,9 @@ async def create_policy(
         is_active=policy_data.is_active,
         tenant_id=current_identity.tenant_id,
     )
-
     db.add(policy)
     await db.commit()
     await db.refresh(policy)
-
     # Create audit log
     audit_log = AuditLog(
         event_type="policy.created",
@@ -114,10 +110,8 @@ async def create_policy(
     )
     db.add(audit_log)
     await db.commit()
-
     # Clear policy cache
-    policy_engine.clear_cache()
-
+    # policy_engine.clear_cache()
     # Trigger webhook for policy creation
     await WebhookService.trigger_webhook(
         db=db,
@@ -129,11 +123,10 @@ async def create_policy(
             "priority": policy.priority,
             "is_active": policy.is_active,
             "tenant_id": str(policy.tenant_id),
-            "created_at": policy.created_at.isoformat()
+            "created_at": policy.created_at.isoformat(),
         },
-        tenant_id=str(policy.tenant_id)
+        tenant_id=str(policy.tenant_id),
     )
-
     return PolicyResponse.from_orm(policy)
 
 
@@ -147,28 +140,29 @@ async def get_policy(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "read", target_role="admin"
+        current_identity, "read"
     )
-
     stmt = select(Policy).where(Policy.id == policy_id)
     # Tenant filtering
     if current_identity.tenant_id is not None:
         stmt = stmt.where(Policy.tenant_id == current_identity.tenant_id)
     # else: global/system-level identity can see all
-
     result = await db.execute(stmt)
     policy = result.scalar_one_or_none()
-
     if not policy:
         raise NotFoundError("Policy not found")
-
     return PolicyResponse.from_orm(policy)
 
 
 @router.get("/", response_model=list[PolicyResponse])
 async def list_policies(
     role: str | None = None,
-    is_active: bool | None = None,
+    is_active: bool | None = Query(
+        None,
+        description=(
+            "Filter by active/inactive policies. Default: only active."
+        ),
+    ),
     current_identity: Identity = Depends(get_current_identity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -176,26 +170,20 @@ async def list_policies(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "read", target_role="admin"
+        current_identity, "read"
     )
-
     stmt = select(Policy)
-
     if role:
         stmt = stmt.where(Policy.role == role)
-
     if is_active is not None:
         stmt = stmt.where(Policy.is_active == is_active)
-
     # Tenant filtering
     if current_identity.tenant_id is not None:
         stmt = stmt.where(Policy.tenant_id == current_identity.tenant_id)
     # else: global/system-level identity can see all
-
     stmt = stmt.order_by(Policy.role, Policy.priority.desc())
     result = await db.execute(stmt)
     policies = result.scalars().all()
-
     return [PolicyResponse.from_orm(policy) for policy in policies]
 
 
@@ -210,25 +198,19 @@ async def update_policy(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "write", target_role="admin"
+        current_identity, "write"
     )
-
     stmt = select(Policy).where(Policy.id == policy_id)
     # Tenant filtering
     if current_identity.tenant_id is not None:
         stmt = stmt.where(Policy.tenant_id == current_identity.tenant_id)
     # else: global/system-level identity can see all
-
     result = await db.execute(stmt)
     policy = result.scalar_one_or_none()
-
     if not policy:
         raise NotFoundError("Policy not found")
-
     # Validate JSON Logic rule if provided (temporarily disabled due to library compatibility issues)
     # TODO: Re-enable validation once json_logic library issues are resolved
-    pass
-
     # Store before state for audit
     before_state = {
         "role": policy.role,
@@ -237,16 +219,13 @@ async def update_policy(
         "priority": policy.priority,
         "is_active": policy.is_active,
     }
-
     # Update policy
     update_data = policy_update.dict(exclude_unset=True)
     if update_data:
         for key, value in update_data.items():
             setattr(policy, key, value)
-
         await db.commit()
         await db.refresh(policy)
-
         # Create audit log
         audit_log = AuditLog(
             event_type="policy.updated",
@@ -263,10 +242,8 @@ async def update_policy(
         )
         db.add(audit_log)
         await db.commit()
-
         # Clear policy cache
-        policy_engine.clear_cache()
-
+        # policy_engine.clear_cache()
     # Trigger webhook for policy update
     await WebhookService.trigger_webhook(
         db=db,
@@ -278,11 +255,10 @@ async def update_policy(
             "priority": policy.priority,
             "is_active": policy.is_active,
             "tenant_id": str(policy.tenant_id),
-            "updated_at": policy.updated_at.isoformat()
+            "updated_at": policy.updated_at.isoformat(),
         },
-        tenant_id=str(policy.tenant_id)
+        tenant_id=str(policy.tenant_id),
     )
-
     return PolicyResponse.from_orm(policy)
 
 
@@ -296,21 +272,17 @@ async def delete_policy(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "delete", target_role="admin"
+        current_identity, "delete"
     )
-
     stmt = select(Policy).where(Policy.id == policy_id)
     # Tenant filtering
     if current_identity.tenant_id is not None:
         stmt = stmt.where(Policy.tenant_id == current_identity.tenant_id)
     # else: global/system-level identity can see all
-
     result = await db.execute(stmt)
     policy = result.scalar_one_or_none()
-
     if not policy:
         raise NotFoundError("Policy not found")
-
     # Store before state for audit
     before_state = {
         "role": policy.role,
@@ -319,10 +291,8 @@ async def delete_policy(
         "priority": policy.priority,
         "is_active": policy.is_active,
     }
-
     await db.delete(policy)
     await db.commit()
-
     # Create audit log
     audit_log = AuditLog(
         event_type="policy.deleted",
@@ -332,10 +302,8 @@ async def delete_policy(
     )
     db.add(audit_log)
     await db.commit()
-
     # Clear policy cache
-    policy_engine.clear_cache()
-
+    # policy_engine.clear_cache()
     # Store policy data for webhook before deletion
     policy_data = {
         "id": str(policy.id),
@@ -344,17 +312,15 @@ async def delete_policy(
         "priority": policy.priority,
         "is_active": policy.is_active,
         "tenant_id": str(policy.tenant_id),
-        "deleted_at": datetime.utcnow().isoformat()
+        "deleted_at": datetime.utcnow().isoformat(),
     }
-
     # Trigger webhook for policy deletion
     await WebhookService.trigger_webhook(
         db=db,
         event_type="policy.deleted",
         payload=policy_data,
-        tenant_id=str(policy.tenant_id)
+        tenant_id=str(policy.tenant_id),
     )
-
     return None
 
 
@@ -368,13 +334,11 @@ async def bulk_delete_policies(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "delete", target_role="admin"
+        current_identity, "delete"
     )
-
     deleted_count = 0
     failed_count = 0
     failed_policies = []
-
     for policy_id in delete_request.policy_ids:
         try:
             stmt = select(Policy).where(Policy.id == policy_id)
@@ -382,45 +346,35 @@ async def bulk_delete_policies(
             if current_identity.tenant_id is not None:
                 stmt = stmt.where(Policy.tenant_id == current_identity.tenant_id)
             # else: global/system-level identity can see all
-
             result = await db.execute(stmt)
             policy = result.scalar_one_or_none()
-
             if not policy:
                 failed_count += 1
-                failed_policies.append({
-                    "policy_id": str(policy_id),
-                    "error": "Policy not found"
-                })
+                failed_policies.append(
+                    {"policy_id": str(policy_id), "error": "Policy not found"}
+                )
                 continue
-
             # Prevent deletion of critical system policies
             if policy.role in ["admin", "system"] and policy.priority >= 100:
                 failed_count += 1
-                failed_policies.append({
-                    "policy_id": str(policy_id),
-                    "role": policy.role,
-                    "priority": policy.priority,
-                    "error": "Cannot delete critical system policy"
-                })
+                failed_policies.append(
+                    {
+                        "policy_id": str(policy_id),
+                        "role": policy.role,
+                        "priority": policy.priority,
+                        "error": "Cannot delete critical system policy",
+                    }
+                )
                 continue
-
             await db.delete(policy)
             deleted_count += 1
-
         except Exception as e:
             failed_count += 1
-            failed_policies.append({
-                "policy_id": str(policy_id),
-                "error": str(e)
-            })
-
+            failed_policies.append({"policy_id": str(policy_id), "error": str(e)})
     # Commit all changes
     await db.commit()
-
     # Clear policy cache after bulk deletion
-    policy_engine.clear_cache()
-
+    # policy_engine.clear_cache()
     # Create audit log for bulk operation
     audit_log = AuditLog(
         event_type="policy.bulk_deleted",
@@ -431,12 +385,11 @@ async def bulk_delete_policies(
             "failed_count": failed_count,
             "reason": delete_request.reason,
             "requested_ids": [str(id) for id in delete_request.policy_ids],
-            "failed_policies": failed_policies
-        }
+            "failed_policies": failed_policies,
+        },
     )
     db.add(audit_log)
     await db.commit()
-
     # Trigger webhook for bulk policy deletion
     await WebhookService.trigger_webhook(
         db=db,
@@ -446,16 +399,15 @@ async def bulk_delete_policies(
             "failed_count": failed_count,
             "reason": delete_request.reason,
             "requested_ids": [str(id) for id in delete_request.policy_ids],
-            "failed_policies": failed_policies
+            "failed_policies": failed_policies,
         },
-        tenant_id=str(current_identity.tenant_id)
+        tenant_id=str(current_identity.tenant_id),
     )
-
     return BulkDeletePolicyResponse(
         deleted_count=deleted_count,
         failed_count=failed_count,
         failed_policies=failed_policies,
-        message=f"Bulk delete completed: {deleted_count} deleted, {failed_count} failed"
+        message=f"Bulk delete completed: {deleted_count} deleted, {failed_count} failed",
     )
 
 
@@ -472,9 +424,8 @@ async def test_policy(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "read", target_role="admin"
+        current_identity, "read"
     )
-
     try:
         result = await policy_engine.evaluate_policy(role, action, resource, context)
         return {
@@ -494,11 +445,12 @@ async def test_policy(
             "context": context,
         }
 
+
 # Admin: List all rate limits
 @admin_router.get("/rate-limits", summary="List all rate limit records (admin only)")
 async def list_all_rate_limits(
     db: AsyncSession = Depends(get_db),
-    identity: Identity = Depends(get_current_identity)
+    identity: Identity = Depends(get_current_identity),
 ):
     if identity.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
@@ -506,11 +458,14 @@ async def list_all_rate_limits(
     records = result.fetchall()
     return [dict(r) for r in records]
 
+
 # Admin: Delete all rate limits
-@admin_router.delete("/rate-limits", summary="Delete all rate limit records (admin only)")
+@admin_router.delete(
+    "/rate-limits", summary="Delete all rate limit records (admin only)"
+)
 async def delete_all_rate_limits(
     db: AsyncSession = Depends(get_db),
-    identity: Identity = Depends(get_current_identity)
+    identity: Identity = Depends(get_current_identity),
 ):
     if identity.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
@@ -518,21 +473,25 @@ async def delete_all_rate_limits(
     await db.commit()
     return {"message": "All rate limit records deleted"}
 
+
 # Monitoring: Get current rate limit info for the caller
-@monitoring_router.get("/rate-limits", summary="Get current rate limit info for the caller")
+@monitoring_router.get(
+    "/rate-limits", summary="Get current rate limit info for the caller"
+)
 async def get_my_rate_limit(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    identity: Identity = Depends(get_current_identity)
+    identity: Identity = Depends(get_current_identity),
 ):
     info = await RateLimiter.get_rate_limit_info(request, db, identity)
     return info
+
 
 # Monitoring: Get API usage analytics (stub)
 @monitoring_router.get("/usage", summary="Get API usage analytics (stub)")
 async def get_api_usage_analytics(
     db: AsyncSession = Depends(get_db),
-    identity: Identity = Depends(get_current_identity)
+    identity: Identity = Depends(get_current_identity),
 ):
     # Stub: count total rate limit records and requests
     result = await db.execute(RateLimit.__table__.select())
@@ -541,5 +500,5 @@ async def get_api_usage_analytics(
     return {
         "total_rate_limit_records": len(records),
         "total_requests_tracked": total_requests,
-        "note": "This is a stub. Extend for real analytics."
+        "note": "This is a stub. Extend for real analytics.",
     }

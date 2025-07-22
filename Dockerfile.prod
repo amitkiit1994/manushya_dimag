@@ -1,0 +1,115 @@
+# Multi-stage production Dockerfile for Manushya.ai
+
+# Stage 1: Build stage
+FROM python:3.11-slim as builder
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r manushya && useradd -r -g manushya manushya
+
+# Set work directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt requirements-dev.txt ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Stage 2: Production stage
+FROM python:3.11-slim as production
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/app/venv/bin:$PATH"
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user
+RUN groupadd -r manushya && useradd -r -g manushya manushya
+
+# Set work directory
+WORKDIR /app
+
+# Copy virtual environment from builder stage
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY --chown=manushya:manushya . .
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data /app/cache \
+    && chown -R manushya:manushya /app
+
+# Switch to non-root user
+USER manushya
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/healthz || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Set default command
+CMD ["uvicorn", "manushya.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+
+# Stage 3: Final production image
+FROM production as final
+
+# Add labels for better container management
+LABEL maintainer="Manushya.ai Team"
+LABEL version="1.0.0"
+LABEL description="Manushya.ai - Secure Identity + Memory Infrastructure"
+LABEL org.opencontainers.image.source="https://github.com/manushya-ai/manushya"
+
+# Set resource limits
+ENV GOMAXPROCS=4
+ENV PYTHONHASHSEED=random
+
+# Create startup script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Wait for database\n\
+echo "Waiting for database..."\n\
+until python -c "import asyncio; from manushya.db.database import check_db_health; asyncio.run(check_db_health())" 2>/dev/null; do\n\
+  sleep 2\n\
+done\n\
+\n\
+# Wait for Redis\n\
+echo "Waiting for Redis..."\n\
+until python -c "import asyncio; from manushya.core.redis_client import get_redis; asyncio.run(get_redis().ping())" 2>/dev/null; do\n\
+  sleep 2\n\
+done\n\
+\n\
+# Run database migrations\n\
+echo "Running database migrations..."\n\
+alembic upgrade head\n\
+\n\
+# Start application\n\
+echo "Starting Manushya.ai..."\n\
+exec uvicorn manushya.main:app --host 0.0.0.0 --port 8000 --workers 4\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Use startup script
+CMD ["/app/start.sh"] 

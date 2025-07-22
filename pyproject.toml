@@ -11,7 +11,7 @@ authors = [
 ]
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.11"
+requires-python = ">=3.11,<4.0"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -211,3 +211,6 @@ exclude_lines = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["manushya"] 
+[tool.poetry.group.dev.dependencies]
+openapi-python-client = "^0.25.2"
+

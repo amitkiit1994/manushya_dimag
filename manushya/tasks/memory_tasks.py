@@ -30,10 +30,8 @@ def create_memory_embedding_task(self, memory_id: str):
 
         # Run async function
         memory = asyncio.run(get_memory())
-
         if not memory:
             raise ValueError(f"Memory {memory_id} not found")
-
         # Generate embedding
         embedding = asyncio.run(generate_embedding(memory.text))
 
@@ -49,19 +47,16 @@ def create_memory_embedding_task(self, memory_id: str):
                 await session.commit()
 
         asyncio.run(update_memory())
-
         # Update task status
         self.update_state(
             state="SUCCESS",
             meta={"memory_id": memory_id, "embedding_dimension": len(embedding)},
         )
-
         return {
             "memory_id": memory_id,
             "embedding_dimension": len(embedding),
             "status": "success",
         }
-
     except Exception as e:
         # Update task status with error
         self.update_state(
@@ -74,7 +69,6 @@ def create_memory_embedding_task(self, memory_id: str):
 def batch_create_embeddings_task(self, memory_ids: list):
     """Generate embeddings for multiple memories."""
     results = []
-
     for memory_id in memory_ids:
         try:
             result = create_memory_embedding_task.delay(memory_id)
@@ -85,7 +79,6 @@ def batch_create_embeddings_task(self, memory_ids: list):
             results.append(
                 {"memory_id": memory_id, "error": str(e), "status": "failed"}
             )
-
     return results
 
 
@@ -105,25 +98,24 @@ def cleanup_expired_memories_task(self):
                 )
                 result = await session.execute(stmt)
                 memories = result.scalars().all()
-
                 # Filter expired memories in Python
                 expired_memories = []
                 for memory in memories:
-                    if memory.ttl_days and memory.created_at < datetime.utcnow() - timedelta(days=memory.ttl_days):
+                    if (
+                        memory.ttl_days
+                        and memory.created_at
+                        < datetime.utcnow() - timedelta(days=memory.ttl_days)
+                    ):
                         expired_memories.append(memory)
-
                 # Soft delete expired memories
                 for memory in expired_memories:
                     memory.is_deleted = True
                     memory.deleted_at = datetime.utcnow()
-
                 await session.commit()
                 return len(expired_memories)
 
         deleted_count = asyncio.run(cleanup_memories())
-
         return {"deleted_count": deleted_count, "status": "success"}
-
     except Exception:
         raise
 
@@ -142,14 +134,11 @@ def reindex_memories_task(self, memory_ids: list | None = None):
                         Memory.vector.is_(None),  # Only memories without embeddings
                     )
                 )
-
                 if memory_ids:
                     memory_uuids = [uuid.UUID(mid) for mid in memory_ids]
                     stmt = stmt.where(Memory.id.in_(memory_uuids))
-
                 result = await session.execute(stmt)
                 memories = result.scalars().all()
-
                 # Generate embeddings for each memory
                 for memory in memories:
                     try:
@@ -160,13 +149,10 @@ def reindex_memories_task(self, memory_ids: list | None = None):
                         print(
                             f"Failed to generate embedding for memory {memory.id}: {e}"
                         )
-
                 await session.commit()
                 return len(memories)
 
         reindexed_count = asyncio.run(reindex_memories())
-
         return {"reindexed_count": reindexed_count, "status": "success"}
-
     except Exception:
         raise

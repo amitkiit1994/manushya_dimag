@@ -28,12 +28,10 @@ def create_access_token(
 ) -> str:
     """Create JWT access token."""
     to_encode = data.copy()
-
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.jwt_expiration_minutes)
-
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(
         to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
@@ -61,22 +59,17 @@ async def get_current_identity_jwt(
         # Verify token
         payload = verify_token(credentials.credentials)
         identity_id = payload.get("sub")
-
         if identity_id is None:
             raise AuthenticationError("Token missing identity ID")
-
         # Get identity from database
         stmt = select(Identity).where(
             Identity.id == uuid.UUID(identity_id), Identity.is_active
         )
         result = await db.execute(stmt)
         identity = result.scalar_one_or_none()
-
         if identity is None:
             raise AuthenticationError("Identity not found or inactive")
-
         return identity
-
     except AuthenticationError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -92,14 +85,12 @@ async def get_current_identity(
     """Get current authenticated identity from JWT token or API key."""
     try:
         # First try API key authentication
-        if credentials.credentials.startswith('mk_'):
+        if credentials.credentials.startswith("mk_"):
             identity = await get_current_identity_from_api_key(credentials, db)
             if identity:
                 return identity
-
         # Fallback to JWT authentication
         return await get_current_identity_jwt(credentials, db)
-
     except HTTPException:
         raise
     except Exception:
@@ -118,31 +109,25 @@ async def get_optional_identity(
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
             return None
-
         token = auth_header.split(" ")[1]
-
         # Try API key first
-        if token.startswith('mk_'):
+        if token.startswith("mk_"):
             from manushya.core.api_key_auth import ApiKeyAuth
+
             identity = await ApiKeyAuth.validate_api_key(token, db)
             if identity:
                 return identity
-
         # Fallback to JWT
         payload = verify_token(token)
         identity_id = payload.get("sub")
-
         if identity_id is None:
             return None
-
         stmt = select(Identity).where(
             Identity.id == uuid.UUID(identity_id), Identity.is_active
         )
         result = await db.execute(stmt)
         identity = result.scalar_one_or_none()
-
         return identity
-
     except (AuthenticationError, JWTError):
         return None
 
@@ -155,28 +140,21 @@ def create_identity_token(identity: Identity) -> str:
             "external_id": identity.external_id,
             "role": identity.role,
             "claims": identity.claims,
+            "tenant_id": str(identity.tenant_id) if identity.tenant_id else None,
         }
     )
 
 
 async def create_session_with_tokens(
-    identity: Identity,
-    request: Request,
-    db: AsyncSession,
-    expires_in_days: int = 30
+    identity: Identity, request: Request, db: AsyncSession, expires_in_days: int = 30
 ) -> dict[str, str | int]:
     """Create a session and return both access and refresh tokens."""
     # Create session
     session, refresh_token = await SessionService.create_session(
-        db=db,
-        identity=identity,
-        request=request,
-        expires_in_days=expires_in_days
+        db=db, identity=identity, request=request, expires_in_days=expires_in_days
     )
-
     # Create access token
     access_token = create_identity_token(identity)
-
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -186,18 +164,15 @@ async def create_session_with_tokens(
 
 
 async def refresh_access_token(
-    refresh_token: str,
-    db: AsyncSession
+    refresh_token: str, db: AsyncSession
 ) -> dict[str, str | int] | None:
     """Refresh access token using refresh token."""
     # Get identity from refresh token
     identity = await SessionService.get_identity_from_refresh_token(db, refresh_token)
     if not identity:
         return None
-
     # Create new access token
     access_token = create_identity_token(identity)
-
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,  # Return same refresh token

@@ -26,7 +26,9 @@ router = APIRouter()
 class InvitationCreate(BaseModel):
     email: EmailStr = Field(..., description="Email address to invite")
     role: str = Field(..., description="Role for the invited user")
-    claims: dict[str, Any] = Field(default_factory=dict, description="Additional claims for the user")
+    claims: dict[str, Any] = Field(
+        default_factory=dict, description="Additional claims for the user"
+    )
     expires_in_days: int = Field(default=7, description="Invitation expiration in days")
 
 
@@ -66,16 +68,14 @@ async def create_invitation(
     # Check permissions - only admins can create invitations
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "write", target_role="admin"
+        current_identity, "write", 
     )
-
     # Ensure current identity has a tenant
     if not current_identity.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot create invitations without a tenant"
+            detail="Cannot create invitations without a tenant",
         )
-
     try:
         invitation = await InvitationService.create_invitation(
             db=db,
@@ -84,9 +84,8 @@ async def create_invitation(
             claims=invitation_data.claims,
             tenant_id=str(current_identity.tenant_id),
             invited_by=str(current_identity.id),
-            expires_in_days=invitation_data.expires_in_days
+            expires_in_days=invitation_data.expires_in_days,
         )
-
         # Create audit log
         audit_log = AuditLog(
             event_type="invitation.created",
@@ -101,7 +100,6 @@ async def create_invitation(
         )
         db.add(audit_log)
         await db.commit()
-
         # Trigger webhook for invitation sent
         await WebhookService.trigger_webhook(
             db=db,
@@ -114,17 +112,14 @@ async def create_invitation(
                 "invited_by": str(invitation.invited_by),
                 "tenant_id": str(invitation.tenant_id),
                 "expires_at": invitation.expires_at.isoformat(),
-                "created_at": invitation.created_at.isoformat()
+                "created_at": invitation.created_at.isoformat(),
             },
-            tenant_id=str(current_identity.tenant_id)
+            tenant_id=str(current_identity.tenant_id),
         )
-
         return InvitationResponse.from_orm(invitation)
-
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
 
 
@@ -138,21 +133,17 @@ async def get_invitation(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "read", target_role="admin"
+        current_identity, "read", 
     )
-
     stmt = select(Invitation).where(Invitation.id == invitation_id)
     # Tenant filtering
     if current_identity.tenant_id is not None:
         stmt = stmt.where(Invitation.tenant_id == current_identity.tenant_id)
     # else: global/system-level identity can see all
-
     result = await db.execute(stmt)
     invitation = result.scalar_one_or_none()
-
     if not invitation:
         raise NotFoundError("Invitation not found")
-
     return InvitationResponse.from_orm(invitation)
 
 
@@ -166,22 +157,19 @@ async def list_invitations(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "read", target_role="admin"
+        current_identity, "read", 
     )
-
     # Ensure current identity has a tenant
     if not current_identity.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot list invitations without a tenant"
+            detail="Cannot list invitations without a tenant",
         )
-
     invitations = await InvitationService.get_invitations_by_tenant(
         db=db,
         tenant_id=str(current_identity.tenant_id),
-        include_accepted=include_accepted
+        include_accepted=include_accepted,
     )
-
     return [InvitationResponse.from_orm(invitation) for invitation in invitations]
 
 
@@ -195,22 +183,18 @@ async def revoke_invitation(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "delete", target_role="admin"
+        current_identity, "delete", 
     )
-
     # Get invitation first for audit logging
     stmt = select(Invitation).where(Invitation.id == invitation_id)
     # Tenant filtering
     if current_identity.tenant_id is not None:
         stmt = stmt.where(Invitation.tenant_id == current_identity.tenant_id)
     # else: global/system-level identity can see all
-
     result = await db.execute(stmt)
     invitation = result.scalar_one_or_none()
-
     if not invitation:
         raise NotFoundError("Invitation not found")
-
     # Store before state for audit
     before_state = {
         "email": invitation.email,
@@ -219,16 +203,13 @@ async def revoke_invitation(
         "is_accepted": invitation.is_accepted,
         "expires_at": invitation.expires_at.isoformat(),
     }
-
     # Revoke invitation
     success = await InvitationService.revoke_invitation(db, str(invitation_id))
-
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to revoke invitation"
+            detail="Failed to revoke invitation",
         )
-
     # Create audit log
     audit_log = AuditLog(
         event_type="invitation.revoked",
@@ -238,7 +219,6 @@ async def revoke_invitation(
     )
     db.add(audit_log)
     await db.commit()
-
     return {"message": "Invitation revoked successfully"}
 
 
@@ -249,18 +229,15 @@ async def validate_invitation_token(
 ):
     """Validate an invitation token."""
     invitation = await InvitationService.validate_invitation(db, token)
-
     if not invitation:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invalid or expired invitation token"
+            detail="Invalid or expired invitation token",
         )
-
     # Get tenant name
     stmt = select(Tenant).where(Tenant.id == invitation.tenant_id)
     result = await db.execute(stmt)
     tenant = result.scalar_one_or_none()
-
     return {
         "valid": True,
         "email": invitation.email,
@@ -279,21 +256,16 @@ async def accept_invitation(
     """Accept an invitation and create identity."""
     # Validate invitation
     invitation = await InvitationService.validate_invitation(db, token)
-
     if not invitation:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invalid or expired invitation token"
+            detail="Invalid or expired invitation token",
         )
-
     try:
         # Accept invitation and create identity
         identity = await InvitationService.accept_invitation(
-            db=db,
-            invitation=invitation,
-            external_id=accept_data.external_id
+            db=db, invitation=invitation, external_id=accept_data.external_id
         )
-
         # Create audit log
         audit_log = AuditLog(
             event_type="invitation.accepted",
@@ -308,7 +280,6 @@ async def accept_invitation(
         )
         db.add(audit_log)
         await db.commit()
-
         # Trigger webhook for invitation accepted
         await WebhookService.trigger_webhook(
             db=db,
@@ -320,15 +291,14 @@ async def accept_invitation(
                 "role": identity.role,
                 "external_id": identity.external_id,
                 "tenant_id": str(identity.tenant_id),
-                "accepted_at": datetime.utcnow().isoformat()
+                "accepted_at": datetime.utcnow().isoformat(),
             },
-            tenant_id=str(identity.tenant_id)
+            tenant_id=str(identity.tenant_id),
         )
-
         # Generate JWT token
         from manushya.core.auth import create_identity_token
-        token = create_identity_token(identity)
 
+        token = create_identity_token(identity)
         return InvitationAcceptResponse(
             identity={
                 "id": str(identity.id),
@@ -337,13 +307,11 @@ async def accept_invitation(
                 "claims": identity.claims,
                 "tenant_id": str(identity.tenant_id) if identity.tenant_id else None,
             },
-            token=token
+            token=token,
         )
-
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
 
 
@@ -357,45 +325,37 @@ async def resend_invitation(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "write", target_role="admin"
+        current_identity, "write", 
     )
-
     stmt = select(Invitation).where(Invitation.id == invitation_id)
     # Tenant filtering
     if current_identity.tenant_id is not None:
         stmt = stmt.where(Invitation.tenant_id == current_identity.tenant_id)
     # else: global/system-level identity can see all
-
     result = await db.execute(stmt)
     invitation = result.scalar_one_or_none()
-
     if not invitation:
         raise NotFoundError("Invitation not found")
-
     if invitation.is_accepted:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot resend accepted invitation"
+            detail="Cannot resend accepted invitation",
         )
-
     if invitation.is_expired:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot resend expired invitation"
+            detail="Cannot resend expired invitation",
         )
-
     # Get tenant name
     stmt = select(Tenant).where(Tenant.id == invitation.tenant_id)
     result = await db.execute(stmt)
     tenant = result.scalar_one_or_none()
-
     # Generate email content (in a real implementation, this would send the email)
     email_content = InvitationService.generate_invitation_email_content(
         invitation=invitation,
         base_url="http://localhost:8000",  # This should come from settings
-        tenant_name=tenant.name if tenant else "Unknown"
+        tenant_name=tenant.name if tenant else "Unknown",
     )
-
     # Create audit log
     audit_log = AuditLog(
         event_type="invitation.resent",
@@ -409,9 +369,8 @@ async def resend_invitation(
     )
     db.add(audit_log)
     await db.commit()
-
     return {
         "message": "Invitation email content generated",
         "email_content": email_content,
-        "note": "In production, this would send the actual email"
+        "note": "In production, this would send the actual email",
     }

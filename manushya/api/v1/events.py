@@ -65,30 +65,23 @@ async def list_events(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "read", target_role="admin"
+        current_identity, "read", 
     )
-
     stmt = select(IdentityEvent)
-
     # Apply filters
     if event_type:
         stmt = stmt.where(IdentityEvent.event_type == event_type)
-
     if identity_id:
         stmt = stmt.where(IdentityEvent.identity_id == identity_id)
-
     if is_delivered is not None:
         stmt = stmt.where(IdentityEvent.is_delivered == is_delivered)
-
     # Tenant filtering
     if current_identity.tenant_id is not None:
         stmt = stmt.where(IdentityEvent.tenant_id == current_identity.tenant_id)
     # else: global/system-level identity can see all
-
     stmt = stmt.order_by(IdentityEvent.created_at.desc()).limit(limit)
     result = await db.execute(stmt)
     events = result.scalars().all()
-
     return [EventResponse.from_orm(event) for event in events]
 
 
@@ -102,21 +95,17 @@ async def get_event(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "read", target_role="admin"
+        current_identity, "read", 
     )
-
     stmt = select(IdentityEvent).where(IdentityEvent.id == event_id)
     # Tenant filtering
     if current_identity.tenant_id is not None:
         stmt = stmt.where(IdentityEvent.tenant_id == current_identity.tenant_id)
     # else: global/system-level identity can see all
-
     result = await db.execute(stmt)
     event = result.scalar_one_or_none()
-
     if not event:
         raise NotFoundError("Event not found")
-
     return EventResponse.from_orm(event)
 
 
@@ -132,16 +121,11 @@ async def get_events_for_identity(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "read", target_role="admin"
+        current_identity, "read", 
     )
-
     events = await EventService.get_events_for_identity(
-        db=db,
-        identity_id=str(identity_id),
-        event_types=event_types,
-        limit=limit
+        db=db, identity_id=str(identity_id), event_types=event_types, limit=limit
     )
-
     return [EventResponse.from_orm(event) for event in events]
 
 
@@ -154,16 +138,13 @@ async def get_event_types(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "read", target_role="admin"
+        current_identity, "read", 
     )
-
     event_types = []
     for event_type, description in EventService.EVENT_TYPES.items():
-        event_types.append(EventTypeInfo(
-            event_type=event_type,
-            description=description
-        ))
-
+        event_types.append(
+            EventTypeInfo(event_type=event_type, description=description)
+        )
     return event_types
 
 
@@ -176,42 +157,39 @@ async def get_event_stats(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "read", target_role="admin"
+        current_identity, "read", 
     )
-
     # Build base query with tenant filtering
     base_stmt = select(IdentityEvent)
     if current_identity.tenant_id is not None:
-        base_stmt = base_stmt.where(IdentityEvent.tenant_id == current_identity.tenant_id)
-
+        base_stmt = base_stmt.where(
+            IdentityEvent.tenant_id == current_identity.tenant_id
+        )
     # Total events
     result = await db.execute(base_stmt)
     total_events = len(result.scalars().all())
-
     # Delivered events
     delivered_stmt = base_stmt.where(IdentityEvent.is_delivered)
     result = await db.execute(delivered_stmt)
     delivered_events = len(result.scalars().all())
-
     # Undelivered events
     undelivered_stmt = base_stmt.where(~IdentityEvent.is_delivered)
     result = await db.execute(undelivered_stmt)
     undelivered_events = len(result.scalars().all())
-
     # Event types breakdown
     event_types_stmt = base_stmt
     result = await db.execute(event_types_stmt)
     all_events = result.scalars().all()
-
     event_types_count = {}
     for event in all_events:
-        event_types_count[event.event_type] = event_types_count.get(event.event_type, 0) + 1
-
+        event_types_count[event.event_type] = (
+            event_types_count.get(event.event_type, 0) + 1
+        )
     return EventStats(
         total_events=total_events,
         delivered_events=delivered_events,
         undelivered_events=undelivered_events,
-        event_types=event_types_count
+        event_types=event_types_count,
     )
 
 
@@ -225,34 +203,27 @@ async def retry_event_delivery(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "write", target_role="admin"
+        current_identity, "write", 
     )
-
     stmt = select(IdentityEvent).where(IdentityEvent.id == event_id)
     # Tenant filtering
     if current_identity.tenant_id is not None:
         stmt = stmt.where(IdentityEvent.tenant_id == current_identity.tenant_id)
     # else: global/system-level identity can see all
-
     result = await db.execute(stmt)
     event = result.scalar_one_or_none()
-
     if not event:
         raise NotFoundError("Event not found")
-
     if event.is_delivered:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Event is already delivered"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Event is already delivered"
         )
-
     # Increment delivery attempts
     await EventService.increment_delivery_attempts(db, str(event_id))
-
     # Trigger retry delivery
     import asyncio
-    asyncio.create_task(EventService._deliver_event(event))
 
+    asyncio.create_task(EventService._deliver_event(event))
     # Create audit log
     audit_log = AuditLog(
         event_type="event.retry_delivery",
@@ -266,7 +237,6 @@ async def retry_event_delivery(
     )
     db.add(audit_log)
     await db.commit()
-
     return {"message": "Event delivery retry initiated"}
 
 
@@ -280,11 +250,9 @@ async def cleanup_old_events(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "delete", target_role="admin"
+        current_identity, "delete", 
     )
-
     cleaned_count = await EventService.cleanup_old_events(db, days_old)
-
     # Create audit log
     audit_log = AuditLog(
         event_type="events.cleanup",
@@ -297,11 +265,10 @@ async def cleanup_old_events(
     )
     db.add(audit_log)
     await db.commit()
-
     return {
         "message": f"Cleaned up {cleaned_count} old events",
         "cleaned_count": cleaned_count,
-        "days_old": days_old
+        "days_old": days_old,
     }
 
 
@@ -315,9 +282,8 @@ async def test_event_publishing(
     # Check permissions
     policy_engine = PolicyEngine(db)
     await policy_engine.check_identity_access(
-        current_identity, "write", target_role="admin"
+        current_identity, "write", 
     )
-
     # Publish test event
     event = await EventService.publish_event(
         db=db,
@@ -327,18 +293,16 @@ async def test_event_publishing(
         payload={
             "test": True,
             "message": "This is a test event",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         },
-        metadata={
-            "source": "test_endpoint",
-            "user_agent": "test"
-        },
-        tenant_id=str(current_identity.tenant_id) if current_identity.tenant_id else None
+        metadata={"source": "test_endpoint", "user_agent": "test"},
+        tenant_id=(
+            str(current_identity.tenant_id) if current_identity.tenant_id else None
+        ),
     )
-
     return {
         "message": "Test event published successfully",
         "event_id": str(event.id),
         "event_type": event.event_type,
-        "payload": EventService.format_event_payload(event)
+        "payload": EventService.format_event_payload(event),
     }

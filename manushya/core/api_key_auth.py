@@ -32,42 +32,32 @@ class ApiKeyAuth:
 
     @staticmethod
     async def validate_api_key(
-        api_key: str,
-        db: AsyncSession,
-        required_scopes: list[str] | None = None
+        api_key: str, db: AsyncSession, required_scopes: list[str] | None = None
     ) -> Identity | None:
         """Validate an API key and return the associated identity."""
         if not api_key:
             return None
-
         # Hash the provided API key
         key_hash = ApiKeyAuth.hash_api_key(api_key)
-
         # Find the API key in the database
         stmt = select(ApiKey).where(ApiKey.key_hash == key_hash)
         result = await db.execute(stmt)
         api_key_obj = result.scalar_one_or_none()
-
         if not api_key_obj or not api_key_obj.is_valid:
             return None
-
         # Check scopes if required
         if required_scopes:
             if not all(scope in api_key_obj.scopes for scope in required_scopes):
                 return None
-
         # Update last used timestamp
         api_key_obj.last_used_at = datetime.utcnow()
         await db.commit()
-
         # Get the associated identity
         stmt = select(Identity).where(Identity.id == api_key_obj.identity_id)
         result = await db.execute(stmt)
         identity = result.scalar_one_or_none()
-
         if not identity or not identity.is_active:
             return None
-
         return identity
 
 
@@ -78,14 +68,12 @@ async def get_current_identity_from_api_key(
     """Get current identity from API key authentication."""
     try:
         # Check if it's an API key (starts with 'mk_')
-        if credentials.credentials.startswith('mk_'):
+        if credentials.credentials.startswith("mk_"):
             identity = await ApiKeyAuth.validate_api_key(credentials.credentials, db)
             if identity:
                 return identity
-
         # If not an API key or invalid, return None (fallback to JWT)
         return None
-
     except Exception:
         return None
 
@@ -95,13 +83,12 @@ async def require_api_key_auth(
     db: AsyncSession = Depends(get_db),
 ) -> Identity:
     """Require API key authentication and return the identity."""
-    if not credentials.credentials.startswith('mk_'):
+    if not credentials.credentials.startswith("mk_"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API key required (must start with 'mk_')",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
     identity = await ApiKeyAuth.validate_api_key(credentials.credentials, db)
     if not identity:
         raise HTTPException(
@@ -109,7 +96,6 @@ async def require_api_key_auth(
             detail="Invalid or expired API key",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
     return identity
 
 
@@ -119,17 +105,14 @@ async def require_api_key_scopes(
     db: AsyncSession = Depends(get_db),
 ) -> Identity:
     """Require API key authentication with specific scopes."""
-    if not credentials.credentials.startswith('mk_'):
+    if not credentials.credentials.startswith("mk_"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API key required (must start with 'mk_')",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
     identity = await ApiKeyAuth.validate_api_key(
-        credentials.credentials,
-        db,
-        required_scopes=required_scopes
+        credentials.credentials, db, required_scopes=required_scopes
     )
     if not identity:
         raise HTTPException(
@@ -137,5 +120,4 @@ async def require_api_key_scopes(
             detail="Insufficient API key scopes",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
     return identity

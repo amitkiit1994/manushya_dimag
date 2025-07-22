@@ -26,28 +26,23 @@ class EventService:
         "identity.deleted": "Identity was deleted",
         "identity.activated": "Identity was activated",
         "identity.deactivated": "Identity was deactivated",
-
         # Session events
         "session.created": "New session created",
         "session.revoked": "Session was revoked",
         "session.expired": "Session expired",
-
         # API Key events
         "api_key.created": "API key was created",
         "api_key.revoked": "API key was revoked",
         "api_key.expired": "API key expired",
-
         # Invitation events
         "invitation.created": "Invitation was created",
         "invitation.accepted": "Invitation was accepted",
         "invitation.expired": "Invitation expired",
         "invitation.revoked": "Invitation was revoked",
-
         # Policy events
         "policy.created": "Policy was created",
         "policy.updated": "Policy was updated",
         "policy.deleted": "Policy was deleted",
-
         # Memory events
         "memory.created": "Memory was created",
         "memory.updated": "Memory was updated",
@@ -62,12 +57,11 @@ class EventService:
         actor_id: str | None = None,
         payload: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
-        tenant_id: str | None = None
+        tenant_id: str | None = None,
     ) -> IdentityEvent:
         """Publish an identity event."""
         if event_type not in EventService.EVENT_TYPES:
             logger.warning(f"Unknown event type: {event_type}")
-
         # Create event
         event = IdentityEvent(
             event_type=event_type,
@@ -77,23 +71,19 @@ class EventService:
             metadata=metadata or {},
             tenant_id=tenant_id,
         )
-
         db.add(event)
         await db.commit()
         await db.refresh(event)
-
         logger.info(
             "Identity event published",
             event_id=str(event.id),
             event_type=event_type,
             identity_id=identity_id,
             actor_id=actor_id,
-            tenant_id=tenant_id
+            tenant_id=tenant_id,
         )
-
         # Trigger async delivery
         asyncio.create_task(EventService._deliver_event(event))
-
         return event
 
     @staticmethod
@@ -105,31 +95,27 @@ class EventService:
             # 2. Send to message queues (Redis, RabbitMQ, etc.)
             # 3. Send to event streaming platforms (Kafka, etc.)
             # 4. Update real-time dashboards
-
             logger.info(
                 "Event delivery started",
                 event_id=str(event.id),
-                event_type=event.event_type
+                event_type=event.event_type,
             )
-
             # Simulate delivery delay
             await asyncio.sleep(0.1)
-
             # Mark as delivered
             # Note: In a real implementation, this would be done in a separate task
             # that handles the actual delivery and updates the database
             logger.info(
                 "Event delivered successfully",
                 event_id=str(event.id),
-                event_type=event.event_type
+                event_type=event.event_type,
             )
-
         except Exception as e:
             logger.error(
                 "Event delivery failed",
                 event_id=str(event.id),
                 event_type=event.event_type,
-                error=str(e)
+                error=str(e),
             )
 
     @staticmethod
@@ -137,14 +123,12 @@ class EventService:
         db: AsyncSession,
         identity_id: str,
         event_types: list[str] | None = None,
-        limit: int = 100
+        limit: int = 100,
     ) -> list[IdentityEvent]:
         """Get events for a specific identity."""
         stmt = select(IdentityEvent).where(IdentityEvent.identity_id == identity_id)
-
         if event_types:
             stmt = stmt.where(IdentityEvent.event_type.in_(event_types))
-
         stmt = stmt.order_by(IdentityEvent.created_at.desc()).limit(limit)
         result = await db.execute(stmt)
         return list(result.scalars().all())
@@ -154,67 +138,56 @@ class EventService:
         db: AsyncSession,
         event_type: str,
         tenant_id: str | None = None,
-        limit: int = 100
+        limit: int = 100,
     ) -> list[IdentityEvent]:
         """Get events by type, optionally filtered by tenant."""
         stmt = select(IdentityEvent).where(IdentityEvent.event_type == event_type)
-
         if tenant_id:
             stmt = stmt.where(IdentityEvent.tenant_id == tenant_id)
-
         stmt = stmt.order_by(IdentityEvent.created_at.desc()).limit(limit)
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
     @staticmethod
     async def get_undelivered_events(
-        db: AsyncSession,
-        limit: int = 100
+        db: AsyncSession, limit: int = 100
     ) -> list[IdentityEvent]:
         """Get undelivered events for retry."""
-        stmt = select(IdentityEvent).where(
-            ~IdentityEvent.is_delivered,
-            IdentityEvent.delivery_attempts < 3  # Max 3 attempts
-        ).order_by(IdentityEvent.created_at.asc()).limit(limit)
-
+        stmt = (
+            select(IdentityEvent)
+            .where(
+                ~IdentityEvent.is_delivered,
+                IdentityEvent.delivery_attempts < 3,  # Max 3 attempts
+            )
+            .order_by(IdentityEvent.created_at.asc())
+            .limit(limit)
+        )
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
     @staticmethod
-    async def mark_event_delivered(
-        db: AsyncSession,
-        event_id: str
-    ) -> bool:
+    async def mark_event_delivered(db: AsyncSession, event_id: str) -> bool:
         """Mark an event as delivered."""
         stmt = select(IdentityEvent).where(IdentityEvent.id == event_id)
         result = await db.execute(stmt)
         event = result.scalar_one_or_none()
-
         if not event:
             return False
-
         event.is_delivered = True
         event.delivered_at = datetime.utcnow()
         await db.commit()
-
         return True
 
     @staticmethod
-    async def increment_delivery_attempts(
-        db: AsyncSession,
-        event_id: str
-    ) -> bool:
+    async def increment_delivery_attempts(db: AsyncSession, event_id: str) -> bool:
         """Increment delivery attempts for an event."""
         stmt = select(IdentityEvent).where(IdentityEvent.id == event_id)
         result = await db.execute(stmt)
         event = result.scalar_one_or_none()
-
         if not event:
             return False
-
         event.delivery_attempts += 1
         await db.commit()
-
         return True
 
     @staticmethod
@@ -233,34 +206,24 @@ class EventService:
         }
 
     @staticmethod
-    async def cleanup_old_events(
-        db: AsyncSession,
-        days_old: int = 90
-    ) -> int:
+    async def cleanup_old_events(db: AsyncSession, days_old: int = 90) -> int:
         """Clean up old events (admin only)."""
         from datetime import timedelta
 
         cutoff_date = datetime.utcnow() - timedelta(days=days_old)
-
         stmt = select(IdentityEvent).where(
-            IdentityEvent.created_at < cutoff_date,
-            IdentityEvent.is_delivered
+            IdentityEvent.created_at < cutoff_date, IdentityEvent.is_delivered
         )
-
         result = await db.execute(stmt)
         old_events = result.scalars().all()
-
         cleaned_count = 0
         for event in old_events:
             await db.delete(event)
             cleaned_count += 1
-
         await db.commit()
-
         logger.info(
             "Cleaned up old events",
             cleaned_count=cleaned_count,
-            cutoff_date=cutoff_date.isoformat()
+            cutoff_date=cutoff_date.isoformat(),
         )
-
         return cleaned_count

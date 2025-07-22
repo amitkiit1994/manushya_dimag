@@ -8,8 +8,10 @@
 5. [Core Workflows](#core-workflows)
 6. [Security & Compliance](#security--compliance)
 7. [Advanced Features](#advanced-features)
-8. [Deployment & Infrastructure](#deployment--infrastructure)
-9. [Best Practices](#best-practices)
+8. [SDK Usage Examples](#sdk-usage-examples)
+9. [Performance Tuning](#performance-tuning)
+10. [Deployment & Infrastructure](#deployment--infrastructure)
+11. [Best Practices](#best-practices)
 
 ---
 
@@ -17,13 +19,15 @@
 
 Manushya.ai is a secure, multi-tenant identity and memory infrastructure for autonomous AI agents and enterprise applications. It provides:
 - Robust identity management (multi-role, multi-tenant)
-- Vector-based memory storage with semantic search
+- **Vector-based memory storage with OpenAI embeddings and semantic search**
 - JSON Logic policy engine for fine-grained access control
 - Comprehensive audit logging and compliance
 - API key management, invitation flows, session management
 - Real SSO (OAuth2/OIDC) integration
 - Webhook system for real-time notifications
 - Rate limiting, monitoring, and background tasks
+- **Usage metering for billing and analytics**
+- **SDK generation for Python and TypeScript**
 
 ---
 
@@ -31,7 +35,7 @@ Manushya.ai is a secure, multi-tenant identity and memory infrastructure for aut
 
 ### Core Modules
 - **Identity Management**: Multi-role, multi-tenant, JWT auth, claims, SSO
-- **Memory Storage**: Vector search, metadata, TTL, soft/hard delete
+- **Memory Storage**: Vector search with OpenAI embeddings, metadata, TTL, soft/hard delete
 - **Policy Engine**: JSON Logic, RBAC, resource/action-level, priority, caching
 - **Audit & Compliance**: Full audit trail, before/after state, GDPR, retention
 - **API Keys**: Programmatic access, scopes, expiration, revocation
@@ -42,11 +46,16 @@ Manushya.ai is a secure, multi-tenant identity and memory infrastructure for aut
 - **Rate Limiting**: Role/tenant-aware, Redis caching, admin/monitoring endpoints
 - **Monitoring**: Prometheus metrics, health checks, analytics
 - **Background Tasks**: Celery for async jobs, cleanup, retries
+- **Embedding Service**: OpenAI integration with local fallback
+- **Usage Metering**: Billing-ready analytics and aggregation
+- **SDK Generation**: Python and TypeScript client libraries
 
 ### Data Flow
 - All endpoints are tenant-aware and enforce RBAC via the policy engine.
 - All actions are logged for audit/compliance.
 - Webhooks and events are triggered for all major changes.
+- **Memory creation triggers async embedding generation via Celery.**
+- **Usage events are tracked for billing.**
 
 ---
 
@@ -64,9 +73,12 @@ Manushya.ai is a secure, multi-tenant identity and memory infrastructure for aut
 | Webhooks               | Register, update, deliveries, retry, stats       | ✅     |
 | Policy Engine          | JSON Logic, priority, caching, test endpoint     | ✅     |
 | Memory System          | Vector search, metadata, TTL, soft/hard delete   | ✅     |
+| **Embedding Service**  | **OpenAI integration with local fallback**       | ✅     |
+| **Usage Metering**     | **Billing-ready analytics and aggregation**      | ✅     |
+| **SDK Generation**     | **Python and TypeScript client libraries**       | ✅     |
 | Audit Logging          | Full trail, before/after, GDPR, retention        | ✅     |
-| Monitoring             | Prometheus, health, analytics, admin endpoints   | ✅     |
-| Background Tasks       | Celery, async jobs, retries, cleanup             | ✅     |
+| Monitoring             | Prometheus metrics, health checks, analytics     | ✅     |
+| Background Tasks       | Celery for async jobs, retries, cleanup         | ✅     |
 
 ---
 
@@ -160,6 +172,15 @@ Manushya.ai is a secure, multi-tenant identity and memory infrastructure for aut
 | `/v1/memory/search`              | POST   | Search memories                   |
 | `/v1/memory/bulk-delete`         | POST   | Bulk delete memories              |
 
+### **Usage Metering**
+| Endpoint                        | Method | Description                       |
+|----------------------------------|--------|-----------------------------------|
+| `/v1/usage/events`               | GET    | Get usage events                  |
+| `/v1/usage/daily`                | GET    | Get daily usage aggregation       |
+| `/v1/usage/summary`              | GET    | Get usage summary                 |
+| `/v1/usage/aggregate`            | POST   | Trigger usage aggregation         |
+| `/v1/usage/admin/all-tenants`    | GET    | Get all tenants usage (admin)     |
+
 ### SSO
 | Endpoint                        | Method | Description                       |
 |----------------------------------|--------|-----------------------------------|
@@ -190,12 +211,14 @@ Manushya.ai is a secure, multi-tenant identity and memory infrastructure for aut
 
 ### Memory Creation & Search
 1. Authenticate and POST /v1/memory/
-2. Memory is stored, embedding generated async
-3. Search via POST /v1/memory/search
+2. **Memory is stored with OpenAI embedding generation**
+3. **Async embedding generation via Celery background task**
+4. Search via POST /v1/memory/search with vector similarity
+5. **Usage events tracked for billing**
 
 ### Policy Evaluation
 1. Request arrives with JWT/API key
-2. Policy engine loads and evaluates rules
+2. Policy engine loads and evaluates JSON Logic rules
 3. Access granted/denied, audit logged
 
 ### API Key Flow
@@ -208,7 +231,7 @@ Manushya.ai is a secure, multi-tenant identity and memory infrastructure for aut
 3. Identity is provisioned
 
 ### Session & Refresh Token Flow
-1. Login returns access + refresh tokens
+1. Identity creation returns access + refresh tokens
 2. Use refresh token to get new access token
 3. Revoke sessions as needed
 
@@ -226,6 +249,11 @@ Manushya.ai is a secure, multi-tenant identity and memory infrastructure for aut
 1. All requests checked against rate limits
 2. Headers returned with rate limit info
 3. Admin/monitoring endpoints for analytics
+
+### **Usage Metering Flow**
+1. **API calls tracked in usage_events table**
+2. **Daily aggregation via Celery beat**
+3. **Billing analytics available via /v1/usage/ endpoints**
 
 ---
 
@@ -251,6 +279,292 @@ Manushya.ai is a secure, multi-tenant identity and memory infrastructure for aut
 - **Monitoring**: Prometheus metrics, health checks, analytics
 - **Background Tasks**: Celery for async jobs, cleanup, retries
 - **Production Readiness**: Docker, env config, logging, migrations
+- **Embedding Service**: OpenAI integration with local fallback
+- **Usage Metering**: Billing-ready analytics and aggregation
+- **SDK Generation**: Python and TypeScript client libraries
+
+---
+
+## 📚 SDK Usage Examples
+
+### Python SDK
+
+```python
+from sdk.python.client import Client
+from sdk.python.api.identity.create_identity_v1_identity_post import sync_detailed as create_identity
+from sdk.python.models.identity_create import IdentityCreate
+from sdk.python.models.identity_create_claims import IdentityCreateClaims
+
+# Create an unauthenticated client for identity creation
+client = Client(base_url="http://localhost:8000")
+claims = IdentityCreateClaims()
+claims["email"] = "user@example.com"
+identity_data = IdentityCreate(external_id="user-123", role="user", claims=claims)
+identity_resp = create_identity(client=client, body=identity_data)
+access_token = identity_resp.parsed.access_token
+
+# Use the access token for authenticated requests
+client = Client(base_url="http://localhost:8000", headers={"Authorization": f"Bearer {access_token}"})
+
+# Create a memory
+from sdk.python.api.memory.create_memory_v1_memory_post import sync_detailed as create_memory
+from sdk.python.models.memory_create import MemoryCreate
+from sdk.python.models.memory_create_metadata import MemoryCreateMetadata
+
+metadata = MemoryCreateMetadata()
+metadata["source"] = "sdk-test"
+memory_data = MemoryCreate(text="Test memory", type_="note", metadata=metadata)
+response = create_memory(client=client, body=memory_data)
+print(response.status_code, response.parsed)
+```
+
+### TypeScript SDK
+
+```typescript
+import { ManushyaClient } from '@manushya/sdk';
+
+# Initialize client with JWT token
+const client = new ManushyaClient({
+    jwtToken: 'your-jwt-token',
+    baseUrl: 'https://api.manushya.ai'
+});
+
+# Create memory with embedding
+const memory = await client.memory.create({
+    text: 'Investment recommendation for high-net-worth client',
+    type: 'investment_recommendation',
+    metadata: {
+        clientId: 'CS002',
+        riskLevel: 'high',
+        portfolioSize: '$2M+'
+    }
+});
+
+# Search with vector similarity
+const searchResults = await client.memory.search({
+    query: 'high net worth investment',
+    similarityThreshold: 0.8,
+    limit: 5
+});
+
+# Get usage analytics
+const usage = await client.usage.getSummary({
+    days: 30
+});
+
+# Create API key
+const apiKey = await client.apiKeys.create({
+    name: 'Production API Key',
+    scopes: ['read', 'write'],
+    expiresInDays: 365
+});
+```
+
+### SDK Features
+- **Authentication**: JWT tokens and API keys
+- **Memory Management**: CRUD operations with vector search
+- **Identity Management**: Multi-role identity system
+- **Policy Testing**: JSON Logic policy evaluation
+- **Usage Analytics**: Billing and usage tracking
+- **Webhook Management**: Real-time notifications
+- **Rate Limiting**: Built-in rate limit handling
+
+---
+
+### Note
+The generated Python SDK is low-level and does not provide a high-level `ManushyaClient` abstraction. You must use the endpoint modules and models directly as shown above.
+
+---
+
+## ⚡ Performance Tuning
+
+### Database Optimization
+
+#### PostgreSQL Configuration
+```sql
+-- Optimize for vector operations
+ALTER SYSTEM SET shared_preload_libraries = 'pgvector';
+ALTER SYSTEM SET max_connections = 200;
+ALTER SYSTEM SET shared_buffers = '256MB';
+ALTER SYSTEM SET effective_cache_size = '1GB';
+ALTER SYSTEM SET work_mem = '16MB';
+ALTER SYSTEM SET maintenance_work_mem = '256MB';
+
+-- Restart PostgreSQL after changes
+SELECT pg_reload_conf();
+```
+
+#### HNSW Index Optimization
+```sql
+-- Create optimized HNSW index for 100M+ scale
+CREATE INDEX CONCURRENTLY idx_memories_vector_hnsw 
+ON memories USING hnsw (vector) 
+WITH (m = 16, ef_construction = 64, ef = 40);
+
+-- Monitor index performance
+SELECT schemaname, tablename, indexname, idx_scan, idx_tup_read, idx_tup_fetch
+FROM pg_stat_user_indexes 
+WHERE indexname = 'idx_memories_vector_hnsw';
+```
+
+### Redis Configuration
+
+#### Memory Optimization
+```bash
+# Redis configuration for high throughput
+maxmemory 2gb
+maxmemory-policy allkeys-lru
+save 900 1
+save 300 10
+save 60 10000
+```
+
+#### Connection Pooling
+```python
+# Optimize Redis connections
+import redis.asyncio as redis
+
+redis_pool = redis.ConnectionPool(
+    host='localhost',
+    port=6379,
+    db=0,
+    max_connections=50,
+    retry_on_timeout=True,
+    health_check_interval=30
+)
+```
+
+### Application Performance
+
+#### Celery Worker Optimization
+```python
+# Celery configuration for high throughput
+CELERY_CONFIG = {
+    'worker_prefetch_multiplier': 1,
+    'worker_max_tasks_per_child': 1000,
+    'task_acks_late': True,
+    'task_reject_on_worker_lost': True,
+    'broker_connection_retry_on_startup': True,
+    'result_expires': 3600,
+}
+```
+
+#### Rate Limiting Tuning
+```python
+# Optimize rate limiting for high traffic
+RATE_LIMITS = {
+    "memory:create": {"limit": 1000, "window": 3600},  # 1000 per hour
+    "memory:search": {"limit": 2000, "window": 3600},  # 2000 per hour
+    "identity:create": {"limit": 100, "window": 3600},  # 100 per hour
+}
+```
+
+### Scaling Strategies
+
+#### Horizontal Scaling
+```yaml
+# docker-compose.yml for production scaling
+services:
+  api:
+    image: manushya-api
+    deploy:
+      replicas: 3
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db:5432/manushya
+      - REDIS_URL=redis://redis:6379/0
+  
+  celery-worker:
+    image: manushya-api
+    command: celery -A manushya.tasks.celery_app worker --loglevel=info --concurrency=8
+    deploy:
+      replicas: 4
+```
+
+#### Database Scaling
+```sql
+-- Read replicas for scaling
+-- Primary: Write operations
+-- Replica 1: Read operations
+-- Replica 2: Analytics and reporting
+
+-- Connection string for read replicas
+DATABASE_READ_URL=postgresql://user:pass@replica1:5432/manushya
+DATABASE_ANALYTICS_URL=postgresql://user:pass@replica2:5432/manushya
+```
+
+### Monitoring & Alerting
+
+#### Performance Metrics
+```python
+# Custom metrics for monitoring
+from prometheus_client import Counter, Histogram, Gauge
+
+# API performance metrics
+request_duration = Histogram('api_request_duration_seconds', 'Request duration')
+memory_operations = Counter('memory_operations_total', 'Memory operations')
+embedding_generation_time = Histogram('embedding_generation_seconds', 'Embedding generation time')
+```
+
+#### Alerting Rules
+```yaml
+# prometheus/alerting.yml
+groups:
+  - name: manushya_alerts
+    rules:
+      - alert: HighResponseTime
+        expr: api_request_duration_seconds > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API response time"
+      
+      - alert: EmbeddingFailure
+        expr: embedding_generation_seconds > 30
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Embedding generation failing"
+```
+
+### Caching Strategies
+
+#### Redis Caching
+```python
+# Cache frequently accessed data
+import redis.asyncio as redis
+
+async def get_cached_memory(memory_id: str):
+    cache_key = f"memory:{memory_id}"
+    cached = await redis.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
+    # Fetch from database
+    memory = await get_memory_from_db(memory_id)
+    
+    # Cache for 1 hour
+    await redis.setex(cache_key, 3600, json.dumps(memory))
+    return memory
+```
+
+#### Vector Search Caching
+```python
+# Cache vector search results
+async def cached_vector_search(query: str, limit: int = 10):
+    cache_key = f"search:{hash(query)}:{limit}"
+    cached = await redis.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
+    # Perform vector search
+    results = await perform_vector_search(query, limit)
+    
+    # Cache for 30 minutes
+    await redis.setex(cache_key, 1800, json.dumps(results))
+    return results
+```
 
 ---
 
@@ -277,6 +591,10 @@ Manushya.ai is a secure, multi-tenant identity and memory infrastructure for aut
 6. Use Docker and environment configs for deployment
 7. Keep secrets and credentials secure
 8. Test all endpoints with the provided Postman collection
+9. **Monitor embedding generation performance**
+10. **Track usage metrics for billing**
+11. **Use SDKs for consistent client integration**
+12. **Optimize HNSW index parameters for your data size**
 
 ---
 

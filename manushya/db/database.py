@@ -13,8 +13,6 @@ from manushya.config import settings
 class Base(DeclarativeBase):
     """Base class for all database models."""
 
-    pass
-
 
 # Create async engine
 engine = create_async_engine(
@@ -25,7 +23,6 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_recycle=3600,
 )
-
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
     engine,
@@ -53,7 +50,6 @@ async def init_db():
     """Initialize database tables."""
     async with engine.begin() as conn:
         # Import models to ensure they are registered
-
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
 

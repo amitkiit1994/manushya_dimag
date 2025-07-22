@@ -70,6 +70,216 @@
 			"name": "Authentication & Identity",
 			"item": [
 				{
+					"name": "Password Authentication",
+					"item": [
+						{
+							"name": "Register User",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"user@example.com\",\n  \"password\": \"secure_password_123\",\n  \"email\": \"user@example.com\",\n  \"role\": \"user\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/v1/auth/register",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"auth",
+										"register"
+									]
+								},
+								"description": "Register a new user with password authentication"
+							},
+							"response": []
+						},
+						{
+							"name": "Create Identity with JWT Token",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"external_id\": \"user@example.com\",\n  \"role\": \"user\",\n  \"claims\": {\n    \"name\": \"John Doe\",\n    \"department\": \"engineering\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/v1/identity/",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"identity"
+									]
+								},
+								"description": "Create identity and get JWT token"
+							},
+							"response": []
+						},
+						{
+							"name": "Reset Password",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"user@example.com\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/v1/auth/reset-password",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"auth",
+										"reset-password"
+									]
+								},
+								"description": "Request password reset"
+							},
+							"response": []
+						}
+					],
+					"description": "Password-based authentication endpoints"
+				},
+				{
+					"name": "Multi-Factor Authentication (MFA)",
+					"item": [
+						{
+							"name": "Setup MFA",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{user_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/v1/auth/mfa/setup",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"auth",
+										"mfa",
+										"setup"
+									]
+								},
+								"description": "Setup MFA and get QR code and backup codes"
+							},
+							"response": []
+						},
+						{
+							"name": "Verify MFA Token",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{user_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"token\": \"123456\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/v1/auth/mfa/verify",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"auth",
+										"mfa",
+										"verify"
+									]
+								},
+								"description": "Verify MFA token"
+							},
+							"response": []
+						},
+						{
+							"name": "Generate Backup Codes",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{user_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/v1/auth/mfa/backup-codes",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"auth",
+										"mfa",
+										"backup-codes"
+									]
+								},
+								"description": "Generate new backup codes"
+							},
+							"response": []
+						},
+						{
+							"name": "Disable MFA",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{user_token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/v1/auth/mfa/disable",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"auth",
+										"mfa",
+										"disable"
+									]
+								},
+								"description": "Disable MFA for the current user"
+							},
+							"response": []
+						}
+					],
+					"description": "Multi-factor authentication endpoints"
+				},
+				{
 					"name": "Create Admin Identity",
 					"request": {
 						"method": "POST",
@@ -1182,7 +1392,7 @@
 					"response": []
 				},
 				{
-					"name": "Search Memories",
+					"name": "Search Memories (Vector Similarity)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -1210,7 +1420,40 @@
 								"search"
 							]
 						},
-						"description": "Search memories using semantic similarity"
+						"description": "Search memories using OpenAI embeddings and vector similarity"
+					},
+					"response": []
+				},
+				{
+					"name": "Search Memories (Keyword Fallback)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"retirement planning\",\n  \"type\": \"meeting_note\",\n  \"limit\": 10\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/search",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"memory",
+								"search"
+							]
+						},
+						"description": "Search memories using keyword matching (fallback when no similarity threshold)"
 					},
 					"response": []
 				},
@@ -1596,9 +1839,53 @@
 						"description": "Get API usage analytics (stubbed for now)."
 					},
 					"response": []
+				},
+				{
+					"name": "Circuit Breaker Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/monitoring/circuit-breakers",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "monitoring", "circuit-breakers"]
+						},
+						"description": "Get circuit breaker status for all services."
+					},
+					"response": []
+				},
+				{
+					"name": "Enhanced Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/healthz",
+							"host": ["{{base_url}}"],
+							"path": ["healthz"]
+						},
+						"description": "Enhanced health check with service status."
+					},
+					"response": []
+				},
+				{
+					"name": "Service Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/healthz/services",
+							"host": ["{{base_url}}"],
+							"path": ["healthz", "services"]
+						},
+						"description": "Detailed health check for individual services."
+					},
+					"response": []
 				}
 			],
-			"description": "Monitoring and analytics endpoints for API usage and rate limits."
+			"description": "Monitoring and analytics endpoints for API usage, rate limits, and system health."
 		},
 		{
 			"name": "Webhooks",
@@ -1742,38 +2029,6 @@
 					"response": []
 				},
 				{
-					"name": "List Webhook Deliveries",
-					"request": {
-						"method": "GET",
-						"header": [
-							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
-						],
-						"url": {
-							"raw": "{{base_url}}/v1/webhooks/{{webhook_id}}/deliveries",
-							"host": ["{{base_url}}"],
-							"path": ["v1", "webhooks", "{{webhook_id}}", "deliveries"]
-						},
-						"description": "List delivery attempts for a specific webhook."
-					},
-					"response": []
-				},
-				{
-					"name": "Retry Webhook Delivery",
-					"request": {
-						"method": "POST",
-						"header": [
-							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
-						],
-						"url": {
-							"raw": "{{base_url}}/v1/webhooks/{{webhook_id}}/deliveries/{{delivery_id}}/retry",
-							"host": ["{{base_url}}"],
-							"path": ["v1", "webhooks", "{{webhook_id}}", "deliveries", "{{delivery_id}}", "retry"]
-						},
-						"description": "Retry a failed webhook delivery."
-					},
-					"response": []
-				},
-				{
 					"name": "Get Supported Events",
 					"request": {
 						"method": "GET",
@@ -1791,8 +2046,212 @@
 				}
 			],
 			"description": "Webhook management endpoints for real-time notifications and event delivery."
+		},
+		{
+			"name": "Usage Metering",
+			"item": [
+				{
+					"name": "Get Usage Events",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/usage/events",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "usage", "events"]
+						},
+						"description": "Get usage events for billing and analytics."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Daily Usage",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/usage/daily",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "usage", "daily"]
+						},
+						"description": "Get daily usage aggregation for billing."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Usage Summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/usage/summary?days=30",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "usage", "summary"],
+							"query": [
+								{"key": "days", "value": "30"}
+							]
+						},
+						"description": "Get usage summary for the last N days."
+					},
+					"response": []
+				},
+				{
+					"name": "Trigger Usage Aggregation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2024-01-15\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/usage/aggregate",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "usage", "aggregate"]
+						},
+						"description": "Trigger manual usage aggregation for a specific date."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Tenants Usage (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/usage/admin/all-tenants",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "usage", "admin", "all-tenants"]
+						},
+						"description": "Get usage data for all tenants (admin only)."
+					},
+					"response": []
+				}
+			],
+			"description": "Usage metering endpoints for billing and analytics."
+		},
+		{
+			"name": "Embedding Service",
+			"item": [
+				{
+					"name": "Test OpenAI Embedding",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Test text for OpenAI embedding generation\",\n  \"type\": \"test_memory\",\n  \"metadata\": {\n    \"test_type\": \"openai_embedding\",\n    \"backend\": \"openai\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "memory", ""]
+						},
+						"description": "Test OpenAI embedding generation by creating a memory with OpenAI backend."
+					},
+					"response": []
+				},
+				{
+					"name": "Test Local Embedding Fallback",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Test text for local embedding fallback when OpenAI is unavailable\",\n  \"type\": \"test_memory\",\n  \"metadata\": {\n    \"test_type\": \"local_embedding\",\n    \"backend\": \"local\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "memory", ""]
+						},
+						"description": "Test local embedding fallback when OpenAI is unavailable."
+					},
+					"response": []
+				},
+				{
+					"name": "Test Hash Embedding Fallback",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Test text for hash-based embedding when sentence-transformers unavailable\",\n  \"type\": \"test_memory\",\n  \"metadata\": {\n    \"test_type\": \"hash_embedding\",\n    \"backend\": \"hash\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "memory", ""]
+						},
+						"description": "Test hash-based embedding when sentence-transformers is unavailable."
+					},
+					"response": []
+				},
+				{
+					"name": "Test Vector Search with Embeddings",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"investment recommendation\",\n  \"similarity_threshold\": 0.8,\n  \"limit\": 5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/search",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "memory", "search"]
+						},
+						"description": "Test vector search using generated embeddings."
+					},
+					"response": []
+				},
+				{
+					"name": "Test Embedding Service Error Handling",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{admin_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"\",\n  \"type\": \"test_memory\",\n  \"metadata\": {\n    \"test_type\": \"error_handling\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/memory/",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "memory", ""]
+						},
+						"description": "Test embedding service error handling with empty text."
+					},
+					"response": []
+				}
+			],
+			"description": "Embedding service testing endpoints for OpenAI integration and local fallbacks."
 		}
-
 	],
 	"event": [
 		{
@@ -1845,6 +2304,16 @@
 		},
 		{
 			"key": "user_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "password_user_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "mfa_user_token",
 			"value": "",
 			"type": "string"
 		},

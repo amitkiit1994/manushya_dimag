@@ -29,67 +29,53 @@ class ManushyaException(Exception):
 class AuthenticationError(ManushyaException):
     """Raised when authentication fails."""
 
-    pass
-
 
 class AuthorizationError(ManushyaException):
     """Raised when authorization fails."""
-
-    pass
 
 
 class ValidationError(ManushyaException):
     """Raised when data validation fails."""
 
-    pass
-
 
 class NotFoundError(ManushyaException):
     """Raised when a resource is not found."""
-
-    pass
 
 
 class ConflictError(ManushyaException):
     """Raised when there's a conflict with existing data."""
 
-    pass
-
 
 class RateLimitError(ManushyaException):
     """Raised when rate limit is exceeded."""
-
-    pass
 
 
 class PolicyViolationError(ManushyaException):
     """Raised when a policy rule is violated."""
 
-    pass
+
+class AccessDeniedError(ManushyaException):
+    """Raised when access is denied."""
+
+
+class PolicyError(ManushyaException):
+    """Raised when there's an error with policy operations."""
 
 
 class EmbeddingError(ManushyaException):
     """Raised when embedding generation fails."""
 
-    pass
-
 
 class EncryptionError(ManushyaException):
     """Raised when encryption/decryption fails."""
-
-    pass
 
 
 class DatabaseError(ManushyaException):
     """Raised when database operations fail."""
 
-    pass
-
 
 class ExternalServiceError(ManushyaException):
     """Raised when external service calls fail."""
-
-    pass
 
 
 class ErrorHandler:
@@ -111,8 +97,4 @@ class ErrorHandler:
 
     @staticmethod
     def format_error(message: str, details: str | None = None, code: int = 400):
-        return {
-            "error": message,
-            "details": details,
-            "code": code
-        }
+        return {"error": message, "details": details, "code": code}

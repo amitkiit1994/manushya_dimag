@@ -9,7 +9,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
 
-import redis.asyncio as redis
 import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -27,9 +26,11 @@ from manushya.api.v1 import (
     identity,
     invitations,
     memory,
+    monitoring,
     policy,
     sessions,
     sso,
+    usage,
     webhooks,
 )
 from manushya.api.v1.policy import admin_router, monitoring_router
@@ -37,6 +38,7 @@ from manushya.config import settings
 from manushya.core.auth import get_optional_identity
 from manushya.core.exceptions import ErrorHandler, ManushyaException
 from manushya.core.rate_limiter import RateLimiter, rate_limit_middleware
+from manushya.core.redis_client import close_redis, get_redis
 from manushya.db.database import check_db_health, close_db, get_db, init_db
 
 # Configure structured logging
@@ -57,40 +59,32 @@ structlog.configure(
     wrapper_class=structlog.stdlib.BoundLogger,
     cache_logger_on_first_use=True,
 )
-
 logger = structlog.get_logger()
-
 # Prometheus metrics
 REQUEST_COUNT = Counter(
     "http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]
 )
-
 REQUEST_LATENCY = Histogram(
     "http_request_duration_seconds", "HTTP request latency", ["method", "endpoint"]
 )
 
-# Redis connection
-from manushya.core.redis_client import get_redis, close_redis
 
+# Redis connection
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info("Starting Manushya.ai application", version=settings.version)
-
     try:
         await init_db()
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error("Failed to initialize database", error=str(e))
         raise
-
     await get_redis()
     # Optionally: start background cleanup task
     asyncio.create_task(background_cleanup_jobs())
-
     yield
-
     # Shutdown
     logger.info("Shutting down Manushya.ai application")
     await close_redis()
@@ -107,7 +101,6 @@ app = FastAPI(
     openapi_url="/v1/openapi.json" if settings.debug else None,
     lifespan=lifespan,
 )
-
 # Add middleware
 app.add_middleware(
     CORSMiddleware,
@@ -116,12 +109,10 @@ app.add_middleware(
     allow_methods=settings.cors_allow_methods_list,
     allow_headers=settings.cors_allow_headers_list,
 )
-
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1"],
 )
-
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.jwt_secret_key,
@@ -133,11 +124,9 @@ app.add_middleware(
 async def add_process_time_header(request: Request, call_next):
     """Add processing time header and log requests."""
     start_time = time.time()
-
     # Generate request ID
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
-
     # Log request
     logger.info(
         "HTTP request started",
@@ -147,23 +136,18 @@ async def add_process_time_header(request: Request, call_next):
         client_ip=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
-
     response = await call_next(request)
-
     # Calculate processing time
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = str(process_time)
     response.headers["X-Request-ID"] = request_id
-
     # Update metrics
     REQUEST_COUNT.labels(
         method=request.method, endpoint=request.url.path, status=response.status_code
     ).inc()
-
     REQUEST_LATENCY.labels(method=request.method, endpoint=request.url.path).observe(
         process_time
     )
-
     # Log response
     logger.info(
         "HTTP request completed",
@@ -173,16 +157,20 @@ async def add_process_time_header(request: Request, call_next):
         status_code=response.status_code,
         process_time=process_time,
     )
-
     return response
 
 
 @app.middleware("http")
 async def rate_limiting_http_middleware(request: Request, call_next):
     # Skip rate limiting for health, metrics, and docs
-    if request.url.path in ["/healthz", "/metrics", "/v1/docs", "/v1/openapi.json", "/v1/redoc"]:
+    if request.url.path in [
+        "/healthz",
+        "/metrics",
+        "/v1/docs",
+        "/v1/openapi.json",
+        "/v1/redoc",
+    ]:
         return await call_next(request)
-
     # Get DB session
     async for db in get_db():
         # Get identity (if any)
@@ -190,7 +178,6 @@ async def rate_limiting_http_middleware(request: Request, call_next):
         # Run rate limiting check
         await rate_limit_middleware(request, db, identity)
         break
-
     response = await call_next(request)
     # Add rate limit headers if available
     limit_info = getattr(request.state, "rate_limit_info", None)
@@ -213,7 +200,6 @@ async def manushya_exception_handler(request: Request, exc: ManushyaException):
         error_code=exc.error_code,
         details=exc.details,
     )
-
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={
@@ -233,7 +219,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         request_id=getattr(request.state, "request_id", None),
         errors=exc.errors(),
     )
-
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
@@ -253,7 +238,6 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
         error=str(exc),
         exc_info=True,
     )
-
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -275,6 +259,7 @@ async def startup_event():
     # Optionally: start background cleanup task
     asyncio.create_task(background_cleanup_jobs())
 
+
 async def background_cleanup_jobs():
     while True:
         try:
@@ -282,7 +267,9 @@ async def background_cleanup_jobs():
                 await RateLimiter.cleanup_expired_limits(db)
                 # Retry failed webhook deliveries
                 from manushya.services.webhook_service import WebhookService
-                await WebhookService.retry_failed_deliveries(db)
+
+                WebhookService(db)
+                # Note: Retry logic is now handled by Celery tasks
                 # Clean up old webhook deliveries (weekly)
                 if datetime.utcnow().weekday() == 0:  # Monday
                     await WebhookService.cleanup_old_deliveries(db)
@@ -307,7 +294,7 @@ async def health_check() -> dict[str, Any]:
     return {
         "database": db_ok,
         "redis": redis_ok,
-        "status": "ok" if db_ok and redis_ok else "degraded"
+        "status": "ok" if db_ok and redis_ok else "degraded",
     }
 
 
@@ -329,7 +316,9 @@ app.include_router(events.router, prefix="/v1/events", tags=["events"])
 app.include_router(sso.router, prefix="/v1/sso", tags=["sso"])
 app.include_router(admin_router)
 app.include_router(monitoring_router)
+app.include_router(monitoring.router, prefix="/v1/monitoring", tags=["monitoring"])
 app.include_router(webhooks.router)
+app.include_router(usage.router, prefix="/v1/usage", tags=["usage"])
 
 
 # Root endpoint
