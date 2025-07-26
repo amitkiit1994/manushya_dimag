@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
     workers: int = Field(default=1)
+    # Root path for subpath deployments (e.g., /manushya-ai)
+    root_path: str = Field(default="")
+    # Allowed hosts for TrustedHostMiddleware
+    allowed_hosts: str = Field(default="localhost,127.0.0.1")
     # Security
     secret_key: str = Field(...)
     jwt_secret_key: str = Field(...)
@@ -140,6 +144,13 @@ class Settings(BaseSettings):
     def celery_accept_content_list(self) -> list[str]:
         """Get Celery accept content as a list."""
         return [item.strip() for item in self.celery_accept_content.split(",")]
+
+    @property
+    def allowed_hosts_list(self) -> list[str]:
+        """Get allowed hosts as a list."""
+        if self.allowed_hosts == "*":
+            return ["*"]
+        return [item.strip() for item in self.allowed_hosts.split(",")]
 
     class Config:
         env_file = ".env"

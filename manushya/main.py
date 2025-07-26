@@ -99,6 +99,7 @@ app = FastAPI(
     docs_url="/v1/docs" if settings.debug else None,
     redoc_url="/v1/redoc" if settings.debug else None,
     openapi_url="/v1/openapi.json" if settings.debug else None,
+    root_path=settings.root_path,
     lifespan=lifespan,
 )
 # Add middleware
@@ -111,7 +112,7 @@ app.add_middleware(
 )
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1"],
+    allowed_hosts=["*"] if settings.debug else settings.allowed_hosts_list,
 )
 app.add_middleware(
     SessionMiddleware,
